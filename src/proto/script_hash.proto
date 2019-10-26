@@ -3,63 +3,36 @@ syntax = "proto3";
 package script_hash;
 
 message BalanceRequest {
-  // The script hash as bytes.
+  // The script hash as bytes
   bytes script_hash = 1;
 }
 
 message BalanceResponse {
-  // Confirmed balance in Satoshi's.
+  // Confirmed balance in satoshis
   uint64 confirmed = 1;
-  // Unconfirmed balance in Satoshi's.
+  // Unconfirmed balance in satoshis
   uint64 unconfirmed = 2;
 }
 
 message ScriptHashHistoryRequest {
-  // The script hash as bytes.
+  // The script hash as bytes
   bytes script_hash = 1;
   // The start height from which to retrieve the history. 0 for the beginning of
-  // time.  Special case: Specify UINT_MAX (eg 4294967295), along with an offset
-  // of UINT_MAX (4294967295) to retrieve only the mempool_items and no
-  // confirmed_items in the ScriptHashHistoryResponse.
+  // time.
   uint32 start_height = 2;
-  // The offset from start_height at which to end the history retrieval (exclusive range
-  // end).
-  // Additionally, `offset` and `start_height` have the following special behavior:
-  // - If offset==0, all history to latest will be retrieved, *without*
-  //   the mempool (mempool_items will always be empty in the ScriptHashHistoryResponse below).
-  // - If offset==UINT_MAX (4294967295), then all of the history starting from
-  //   start_height up until the latest confirmed transactions will be retrieved and
-  //   placed into confirmed_items, plus the mempool_items array will also be filled-in
-  //   with any tx's involving script_hash currently in the mempool.
-  // - All other positive values for offset just indicate an exclusive range ending offset
-  //   from start_height at which to end the query.  mempool_items is never filled-in
-  //   however, unless offset==UINT_MAX.
-
-  //   Examples:
-  //   1. If start_height=1001 and offset=2, and the chain is presently at block
-  //      600,000, only confirmed history items from block 1001 and block 1002 will be
-  //      returned and placed in confirmed_items, and mempool_items will be empty.
-  //   2. *However*, if start_height=1001 and offset=UINT_MAX and the chain is
-  //      presently at block 600,000, then the confirmed tx's for the script_hash from block
-  //      1001 up until 600,000 will be returned, plus any unconfirmed
-  //      tx's involving script_hash from the mempool will be placed in mempool_items as well.
-  //   3. Conversely, if start_height=UINT_MAX and offset=UINT_MAX, then only mempool_items (if any)
-  //      involving script_hash will be returned. (confirmed_items will always be empty in the
-  //      ScriptHashHistoryResponse below).
-  //   4. Setting start_height=UINT_MAX and offset!=UINT_MAX will always return nothing.
-  //
-  //   In this way, the `offset` can be used to control whether the client wants
-  //   mempool_items or not in the response, by using the special value UINT_MAX (4294967295).
-  //
-  //   Conversely, `start_height` can be used to control whether to omit confirmed_items
-  //   in the response and only retrieve mempool_items (by setting both start_height and offset to
-  //   UINT_MAX eg 4294967295).
-  //
-  //   One final note: if offset != UINT_MAX, and offset + start_height > chain_height (and
-  //   start_height != UINT_MAX), then the query will just behave identically to offset=0
-  //   (that is, all confirmed_items from start_height until present will be returned, with
-  //   mempool_items being empty).
+  // The offset from start_height at which to end the history retrieval -- exclusive range
+  // end; eg [start_height, start_height+offset) will be retrieved.
+  // offset=0 is a special case which will retrieve all confirmed_items from start_height up
+  // to present.
   uint32 offset = 3;
+  // If true, confirmed_items will always be empty. Use this in conjunction with
+  // include_mempool_items=true (and start_height=offset=0) to retrieve *just*
+  // the mempool_items from the server.
+  bool exclude_confirmed_items = 4;
+  // If true, and if offset=0 or if offet+start_height > chain_height, then items
+  // currently in the mempool will be included in mempool_items in the
+  // ScriptHashHistoryResponse.
+  bool include_mempool_items = 5;
 }
 
 message ScriptHashHistoryResponse {
@@ -71,9 +44,9 @@ message ScriptHashHistoryResponse {
     bytes tx_hash = 2;
   }
   message MempoolItem {
-    // The transaction hash as bytes.
+    // The transaction hash as bytes
     bytes tx_hash = 1;
-    // The transaction fee in Satoshi's.
+    // The transaction fee in satoshis
     uint64 fee = 2;
     // If true, the tx in question has at least 1 input that is also in the mempool (is unconfirmed)
     // If false, all inputs to this tx are confirmed.
@@ -84,7 +57,7 @@ message ScriptHashHistoryResponse {
 }
 
 message ListUnspentRequest {
-  // The script hash as bytes.
+  // The script hash as bytes
   bytes script_hash = 1;
 }
 
@@ -93,18 +66,18 @@ message ListUnspentResponse {
     // The integer height of the block the transaction was confirmed in. 0 if
     // the transaction is in the mempool.
     int32 height = 1;
-    // The output’s transaction hash as bytes.
+    // The output’s transaction hash as bytes
     bytes tx_hash = 2;
-    // The zero-based index of the output in the transaction’s list of outputs.
+    // The zero-based index of the output in the transaction’s list of outputs
     uint32 v_out = 3;
-    // The output’s value in Satoshi's.
+    // The output’s value in satoshis
     uint64 value = 4;
   }
   repeated UnspentItem items = 1;
 }
 
 message SubscribeScriptHashRequest {
-  // The script hash as bytes.
+  // The script hash as bytes
   bytes script_hash = 1;
 }
 
