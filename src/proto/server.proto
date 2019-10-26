@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package server;
+
+import "google/protobuf/empty.proto";
+
+message BannerResponse {
+  // A string.
+  string banner = 1;
+}
+
+message DonnationAddressResponse {
+  // A string.
+  string address = 1;
+}
+
+message VersionMessage {
+  // Any string name of the server or client's user agent. For stats purposes 
+  // only; may be empty, does not (usually) affect protocol behavior or 
+  // anything else. E.g.: "Electron-Cash", "BobsServerImpl", etc.
+  string agent = 1; 
+  // Version number X.Y.Z form (or X.Y)
+  string version = 2;
+}
+
+service Server {
+  // Return a banner to be shown in the Electron Cash console.
+  rpc Banner(google.protobuf.Empty) returns (BannerResponse);
+  // Return a server donation address.
+  rpc DonationAddress(google.protobuf.Empty) returns (BannerResponse);
+  // Ping the server to ensure it is responding.
+  rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
+  // Identify the client to the server and negotiate the protocol version. Only
+  // the first server.version() message is accepted.
+  rpc Version(VersionMessage) returns (VersionMessage);
+}

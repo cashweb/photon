@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package fee_estimation;
+
+import "google/protobuf/empty.proto";
+
+message EstimateFeeRequest {
+  // The number of blocks to target for confirmation.
+  uint32 number = 1;
+}
+
+message EstimateFeeResponse {
+  // The estimated transaction fee in Satoshi's per kilobyte. If the daemon does
+  // not have enough information to make an estimate, -1 is returned.
+  float fee = 1;
+}
+
+message RelayFeeResponse {
+  // The estimated transaction fee in Satoshi's per kilobyte. If the daemon does
+  // not have enough information to make an estimate, -1 is returned.
+  float fee = 1;
+}
+
+message FeeHistogramResponse {
+  // The histogram is an array of [fee, vsize] pairs, where vsize_n is the
+  // cumulative virtual size of mempool transactions with a fee rate in the
+  // interval [fee_(n-1), fee_n], and fee_(n-1) > fee_n.
+
+  // Fee intervals may have variable size. The choice of appropriate intervals
+  // is currently not part of the protocol.
+
+  message FeePair {
+    float fee = 1;
+    uint32 vsize = 2;
+  }
+  repeated FeePair pairs = 1;
+}
+
+service FeeEstimation {
+  // Return the estimated transaction fee per kilobyte for a transaction to be
+  // confirmed within a certain number of blocks.
+  rpc EstimateFee(EstimateFeeRequest) returns (EstimateFeeResponse);
+  // Return the minimum fee a low-priority transaction must pay in order to be
+  // accepted to the daemon’s memory pool.
+  rpc RelayFee(google.protobuf.Empty) returns (RelayFeeResponse);
+  // Return a histogram of the fee rates paid by transactions in the memory
+  // pool, weighted by transaction size.
+  rpc FeeHistogram(google.protobuf.Empty) returns (FeeHistogramResponse);
+}
