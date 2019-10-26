@@ -68,10 +68,15 @@ message ListUnspentResponse {
     int32 height = 1;
     // The output’s transaction hash as bytes
     bytes tx_hash = 2;
-    // The zero-based index of the output in the transaction’s list of outputs
-    uint32 v_out = 3;
-    // The output’s value in satoshis
-    uint64 value = 4;
+    message OutputItem {
+      // The zero-based index of the output in the transaction’s list of outputs
+      uint32 pos = 1;
+      // The output’s value in satoshis
+      uint64 value = 2;
+    }
+    // This array usually has 1 item, but it may have more if for some reason this script_hash appeared in the
+    // same tx as multiple outputs (a rare occurence, but can happen).
+    repeated OutputItem output_items = 3;
   }
   repeated UnspentItem items = 1;
 }
