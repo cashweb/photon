@@ -36,7 +36,7 @@ message TXOInfoResponse {
             // Where it was spent
             SpentInfo spent_info = 3;
             // if true, the txo was not spent
-            bool utxo = 4;
+            bool unspent = 4;
         }
     }
     // The list of responses for each of the txo's mentioned in TXOInfoRequest.txos[i]
