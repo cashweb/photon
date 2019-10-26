@@ -29,7 +29,7 @@ message TXOInfoResponse {
         // Note to Harry: I'm not sure which one of the below to use here. Minimally it's nice to
         // know if a txo was spent.  But optionally if it's not too slow on the server-side, it's nice
         // to know where a txo was spent if it was spent.  This helps wallets out with UI.
-        // Note 2: not sure if this 'oneof' syntax here is correct. I made this a oneof so that utxo=true *OR*
+        // Note 2: not sure if this 'oneof' syntax here is correct. I made this a oneof so that unspent=true *OR*
         //         the spent_info will be populated.  If it turns out retrieving spent_info like this is slow,
         //         can just use the bool.
         oneof spent {
@@ -39,19 +39,24 @@ message TXOInfoResponse {
             bool unspent = 4;
         }
     }
-    // The list of responses for each of the txo's mentioned in TXOInfoRequest.txos[i]
-    // Note to Harry: Can we do a repeated oneof like this?!
-    repeated oneof txos {
-        // if defined, the txo was found, and this is its info
-        TXOInfo info = 1;
-        // iff defined, it will always be true. Indicates this txo was not found.
-        // This is to allow client to actually query if txo's are valid/invalid without receiving an error
-        // response. (Useful for CashShuffle and possibly even CashFusion to quickly detect invalid participants)
-        bool not_found = 2;
+    // The whole point of this message is to contain a oneof
+    // where either not_found is defined (in which case the txo in question does not exist),
+    // or info is defined (in which case it exists and the info is returned).
+    message TXOInfoOrNotFound {
+        oneof txo {
+            // if defined, the txo was found, and this is its info
+            TXOInfo info = 1;
+            // iff defined, it will always be true. Indicates this txo was not found.
+            // This is to allow client to actually query if txo's are valid/invalid without receiving an error
+            // response. (Useful for CashShuffle and possibly even CashFusion to quickly detect invalid participants)
+            bool not_found = 2;
+        }
     }
+    // The list of responses for each of the txo's mentioned in TXOInfoRequest.txos[i]
+    repeated TXOInfoOrNotFound txos = 1;
 }
 
 service WishList {
-  // Get information on some txo's, such as script, value and/or if it was spent and where it was spent.
-  rpc TXOInfo(TXOInfoRequest) returns (TXOInfoResponse);
+    // Get information on some txo's, such as script, value and/or if it was spent and where it was spent.
+    rpc TXOInfo(TXOInfoRequest) returns (TXOInfoResponse);
 }
