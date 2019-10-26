@@ -4,25 +4,12 @@ package header;
 
 import "google/protobuf/empty.proto";
 
-message HeaderRequest {
-  // The height of the block.
-  uint32 height = 1;
-  // The checkpoint height. Ignored if zero, otherwise the
-  // following must hold: height <= cp_height
-  uint32 cp_height = 2;
-}
-
-message HeaderResponse {
-  // The raw block header.
-  bytes header = 1;
-  // The merkle branch of header up to root, deepest pairing first.
-  repeated bytes branch = 2;
-}
-
 message HeadersRequest {
-  // The height of the first header requested, a non-negative integer.
+  // The height of the first header requested, a non-negative integer. If zero
+  // all headers since genesis transaction.
   uint32 start_height = 1;
-  // The number of headers requested, a non-negative integer. If 0 indicates all headers to tip.
+  // The number of headers requested, a non-negative integer. If zero all
+  // headers to tip.
   uint32 count = 2;
   // Checkpoint height, a non-negative integer. Ignored if zero, otherwise the
   // following must hold: start_height + (count - 1) <= cp_height
@@ -38,9 +25,11 @@ message HeadersResponse {
   // blockchain; presumably the client has the merkle root hard-coded as a
   // checkpoint.
 
+  // Merkle root of the header tree.
+  bytes root = 2;
   // The merkle branch of the last returned header up to root, deepest pairing
   // first.
-  repeated bytes branch = 2;
+  repeated bytes branch = 3;
 }
 
 message SubscribeResponse {
@@ -51,10 +40,8 @@ message SubscribeResponse {
 }
 
 service Headers {
-  // Return the block header at the given height.
-  rpc Header(HeaderRequest) returns (HeaderResponse);
   // Return a concatenated chunk of block headers from the main chain.
   rpc Headers(HeadersRequest) returns (HeadersResponse);
   // Subscribe to receive block headers when a new block is found.
-  rpc SubscribeHeader(google.protobuf.Empty) returns (stream SubscribeResponse);
+  rpc SubscribeHeaders(google.protobuf.Empty) returns (stream SubscribeResponse);
 }

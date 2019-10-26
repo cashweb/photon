@@ -12,13 +12,13 @@ message EstimateFeeRequest {
 message EstimateFeeResponse {
   // The estimated transaction fee in Satoshi's per kilobyte. If the daemon does
   // not have enough information to make an estimate, -1 is returned.
-  float fee = 1;
+  double fee = 1;
 }
 
 message RelayFeeResponse {
   // The estimated transaction fee in Satoshi's per kilobyte. If the daemon does
   // not have enough information to make an estimate, -1 is returned.
-  float fee = 1;
+  double fee = 1;
 }
 
 message FeeHistogramResponse {
@@ -30,7 +30,7 @@ message FeeHistogramResponse {
   // is currently not part of the protocol.
 
   message FeePair {
-    float fee = 1;
+    double fee = 1;
     uint32 vsize = 2;
   }
   repeated FeePair pairs = 1;

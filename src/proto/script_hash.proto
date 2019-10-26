@@ -20,28 +20,18 @@ message ScriptHashHistoryRequest {
   // The start height from which to retrieve the history. 0 for the beginning of
   // time.
   uint32 start_height = 2;
-  // The number of headers requested. If 0 indicates all
-  // history to latest.
-  uint32 count = 3;
+  // The offset from start_height. If 0 indicates all history to latest.
+  uint32 offset = 3;
 }
 
 message ScriptHashHistoryResponse {
   // Each confirmed transaction is a message:
-  message HistoryItem {
+  message ConfirmedItem {
     // The integer height of the block the transaction was confirmed in.
     uint32 height = 1;
     // The transaction hash as bytes.
     bytes tx_hash = 2;
   }
-  repeated HistoryItem items = 1;
-}
-
-message MempoolRequest {
-  // The script hash as bytes.
-  bytes script_hash = 1;
-}
-
-message MempoolResponse {
   message MempoolItem {
     // The transaction hash as bytes.
     bytes tx_hash = 1;
@@ -50,7 +40,8 @@ message MempoolResponse {
     // Heights of the input transactions. 0 if the input is unconfirmed.
     repeated uint32 heights = 3;
   }
-  repeated MempoolItem items = 1;
+  repeated ConfirmedItem confirmed_items = 1;
+  repeated MempoolItem mempool_items = 2;
 }
 
 message ListUnspentRequest {
