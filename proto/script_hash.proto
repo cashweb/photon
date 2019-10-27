@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package script_hash;
+
+message BalanceRequest {
+  // The script hash as bytes
+  bytes script_hash = 1;
+}
+
+message BalanceResponse {
+  // Confirmed balance in satoshis
+  uint64 confirmed = 1;
+  // Unconfirmed balance in satoshis
+  uint64 unconfirmed = 2;
+}
+
+message ScriptHashHistoryRequest {
+  // The script hash as bytes
+  bytes script_hash = 1;
+  message ConfirmedPageWindow {
+    // The start height from which to retrieve the history. 0 for the beginning
+    // of time.
+    uint32 start_height = 2;
+    // The offset from start_height at which to end the history retrieval --
+    // exclusive range end; eg [start_height, start_height+offset) will be
+    // retrieved. offset=0 is a special case which will retrieve all
+    // confirmed_items from start_height up to present.
+    uint32 offset = 3;
+  }
+  // If empty, confirmed_items will always be empty.
+  ConfirmedPageWindow page_size = 3;
+  // If true, and if offset=0 or if offet+start_height > chain_height, then
+  // items currently in the mempool will be included in mempool_items in the
+  // ScriptHashHistoryResponse.
+  bool include_mempool_items = 5;
+}
+
+message ScriptHashHistoryResponse {
+  // Each confirmed transaction is a message:
+  message ConfirmedItem {
+    // The integer height of the block the transaction was confirmed in.
+    uint32 height = 1;
+    // The transaction hash as bytes.
+    bytes tx_hash = 2;
+  }
+  message MempoolItem {
+    // The transaction hash as bytes
+    bytes tx_hash = 1;
+    // The transaction fee in satoshis
+    uint64 fee = 2;
+    // If true, the tx in question has at least 1 input that is also in the
+    // mempool (is unconfirmed) If false, all inputs to this tx are confirmed.
+    bool has_unconfirmed_parent = 3;
+  }
+  repeated ConfirmedItem confirmed_items = 1;
+  repeated MempoolItem mempool_items = 2;
+}
+
+message ListUnspentRequest {
+  // The script hash as bytes
+  bytes script_hash = 1;
+}
+
+message ListUnspentResponse {
+  message UnspentItem {
+    // The integer height of the block the transaction was confirmed in. 0 if
+    // the transaction is in the mempool.
+    int32 height = 1;
+    // The output’s transaction hash as bytes
+    bytes tx_hash = 2;
+    message OutputItem {
+      // The zero-based index of the output in the transaction’s list of outputs
+      uint32 pos = 1;
+      // The output’s value in satoshis
+      uint64 value = 2;
+    }
+    // This array usually has 1 item, but it may have more if for some reason
+    // this script_hash appeared in the same tx as multiple outputs (a rare
+    // occurence, but can happen).
+    repeated OutputItem output_items = 3;
+  }
+  repeated UnspentItem items = 1;
+}
+
+message SubscribeScriptHashRequest {
+  // The script hash as bytes
+  bytes script_hash = 1;
+}
+
+message SubscribeScriptHashResponse {
+  // The confirmed status of the script hash. This is the hash256 of: all
+  // confirmed transaction hashes relevant to this script hash, in height then
+  // lexicographical order.
+  bytes confirmed_status = 1;
+  // The unconfirmed status of the script hash. This is the hash256 of: the
+  // concatenation of mempool transactions in lexicographical order.
+  bytes unconfirmed_status = 2;
+}
+
+/* // Commented-out for now as we may not need this. May be overkill. -Calin
+message ScriptHashExtendedStatusResponse {
+  bytes status = 1; //< same as the SubscribeScriptHashResponse.status above
+  int32 num_tx = 2; //< the number of transactions total (including mempool)
+  repeated ScriptHashStatusChunk chunks = 3;
+}
+
+message ScriptHashStatusChunk {
+  // the hash as in the old ElectrumX status_hash just for the tx's in this
+  // chunk
+  bytes status = 1;
+  // The number of tx's in this chunk. Note that usually the server will attempt
+  // to chunk the statuses in groups of 100 or 1000 or whatever that particular
+  // server is configured for, but if it cannot do so because some block height
+  // contains many tx's, this number may not be the same for each chunk.
+  int32 num_tx = 2;
+  // the blockchain height of the first tx in this chunk. Except the last chunk
+  // of mempool items which will have this field set to -1.
+  int32 start_height = 3;
+  // the blockchain height of the last tx in this chunk. Note that the next
+  // chunk will necessarily have its .start_height be > this.end_height, except
+  // for the mempool chunks at the end which all have start_height = end_height
+  // = -1
+  int32 end_height = 4;
+}
+*/
+
+service ScriptHash {
+  // Return the confirmed and unconfirmed balances of a script hash.
+  rpc Balance(BalanceRequest) returns (BalanceResponse);
+  // Return the confirmed and unconfirmed history of a script hash.
+  rpc ScriptHashHistory(ScriptHashHistoryRequest)
+      returns (ScriptHashHistoryResponse);
+  // Return an ordered list of UTXOs sent to a script hash.
+  rpc ListUnspent(ListUnspentRequest) returns (ListUnspentResponse);
+  // Subscribe to a script hash.
+  rpc SubscribeScriptHash(SubscribeScriptHashRequest)
+      returns (stream SubscribeScriptHashResponse);
+  /*
+  // Gets the status chunks for a script hash so the client may figure out where
+  // the server and client histories differ (in the case where the initial
+  // subscribe response returns a novel scripthash status to the client).
+  rpc ScriptHashExtendedStatus(SubscribeScriptHashRequest)
+      returns (ScriptHashExtendedStatusResponse);
+  */
+}

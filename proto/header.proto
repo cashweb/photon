@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package header;
+
+import "google/protobuf/empty.proto";
+
+message HeadersRequest {
+  // The height of the first header requested, a non-negative integer. If zero
+  // all headers since genesis transaction.
+  uint32 start_height = 1;
+  // The number of headers requested, a non-negative integer. If zero all
+  // headers to tip.
+  uint32 count = 2;
+  // Checkpoint height, a non-negative integer. Ignored if zero, otherwise the
+  // following must hold: start_height + (count - 1) <= cp_height
+  uint32 cp_height = 3;
+}
+
+message HeadersResponse {
+  // The raw block headers in-order.
+  repeated bytes headers = 1;
+
+  // The message additionally has the following fields if cp_height is not zero.
+  // This provides a proof that all the given headers are present in the
+  // blockchain; presumably the client has the merkle root hard-coded as a
+  // checkpoint.
+
+  // Merkle root of the header tree.
+  bytes root = 2;
+  // The merkle branch of the last returned header up to root, deepest pairing
+  // first.
+  repeated bytes branch = 3;
+}
+
+message SubscribeResponse {
+  // The raw header.
+  bytes header = 1;
+  // The height of the header.
+  uint32 height = 2;
+}
+
+service Headers {
+  // Return a concatenated chunk of block headers from the main chain.
+  rpc Headers(HeadersRequest) returns (HeadersResponse);
+  // Subscribe to receive block headers when a new block is found.
+  rpc SubscribeHeaders(google.protobuf.Empty) returns (stream SubscribeResponse);
+}
