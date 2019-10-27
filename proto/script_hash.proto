@@ -17,7 +17,7 @@ message BalanceResponse {
 message HistoryRequest {
   // The script hash as bytes
   bytes script_hash = 1;
-  message ConfirmedPageWindow {
+  message Range {
     // The start height from which to retrieve the history. 0 for the beginning
     // of time.
     uint32 start_height = 1;
@@ -28,7 +28,7 @@ message HistoryRequest {
     uint32 end_offset = 2;
   }
   // If empty, confirmed_items in the HistoryResponse will always be empty.
-  ConfirmedPageWindow page_size = 2;
+  Range range = 2;
   // If true, then items currently in the mempool will be included in mempool_items
   // in the HistoryResponse.
   bool include_mempool_items = 3;
