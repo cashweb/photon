@@ -26,34 +26,16 @@ message TXOInfoResponse {
             // The input number in txid where this txo appears.
             uint32 pos = 2; //< Note to Harry: again, these two fields can just be collapsed down to a bool...
         }
-        // Note to Harry: I'm not sure which one of the below to use here. Minimally it's nice to
-        // know if a txo was spent.  But optionally if it's not too slow on the server-side, it's nice
-        // to know where a txo was spent if it was spent.  This helps wallets out with UI.
-        // Note 2: not sure if this 'oneof' syntax here is correct. I made this a oneof so that unspent=true *OR*
-        //         the spent_info will be populated.  If it turns out retrieving spent_info like this is slow,
-        //         can just use the bool.
-        oneof spent {
-            // if defined, was spent. Info on where it was spent.
-            SpentInfo info = 3;
-            // if defined, always true; indicates the txo was not spent
-            bool unspent = 4;
-        }
+        // Note to Harry: I'm not sure the performance implications of this. If it's too slow we can just replace
+        // this with a bool "is_spent".
+
+        // if defined, was spent. Info on where it was spent. If not defined, this txo has not yet been spent (is a utxo)
+        SpentInfo spent = 3;
     }
-    // The whole point of this message is to contain a oneof
-    // where either not_found is defined (in which case the txo in question does not exist),
-    // or info is defined (in which case it exists and the info is returned).
-    message TXOInfoOrNotFound {
-        oneof txo {
-            // if defined, the txo was found, and this is its info
-            TXOInfo info = 1;
-            // iff defined, it will always be true. Indicates this txo was not found.
-            // This is to allow client to actually query if txo's are valid/invalid without receiving an error
-            // response. (Useful for CashShuffle and possibly even CashFusion to quickly detect invalid participants)
-            bool not_found = 2;
-        }
-    }
-    // The list of responses for each of the txo's mentioned in TXOInfoRequest.txos[i]
-    repeated TXOInfoOrNotFound txos = 1;
+    // The mapping of i -> TXOInfo for each txo requeted in: TXOInfoRequest.txos[i].
+    // If an index, i, from the request is missing from this map, that indicates the requested txo was not found
+    // and does not exist. Otherwise valid data will be contained in the TXOInfo value.
+    map<uint32, TXOInfo> txos = 1;
 }
 
 service WishList {

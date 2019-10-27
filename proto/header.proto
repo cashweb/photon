@@ -43,5 +43,5 @@ service Headers {
   // Return a concatenated chunk of block headers from the main chain.
   rpc Headers(HeadersRequest) returns (HeadersResponse);
   // Subscribe to receive block headers when a new block is found.
-  rpc SubscribeHeaders(google.protobuf.Empty) returns (stream SubscribeResponse);
+  rpc Subscribe(google.protobuf.Empty) returns (stream SubscribeResponse);
 }
