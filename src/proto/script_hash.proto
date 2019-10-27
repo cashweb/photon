@@ -17,20 +17,20 @@ message BalanceResponse {
 message ScriptHashHistoryRequest {
   // The script hash as bytes
   bytes script_hash = 1;
-  // The start height from which to retrieve the history. 0 for the beginning of
-  // time.
-  uint32 start_height = 2;
-  // The offset from start_height at which to end the history retrieval -- exclusive range
-  // end; eg [start_height, start_height+offset) will be retrieved.
-  // offset=0 is a special case which will retrieve all confirmed_items from start_height up
-  // to present.
-  uint32 offset = 3;
-  // If true, confirmed_items will always be empty. Use this in conjunction with
-  // include_mempool_items=true (and start_height=offset=0) to retrieve *just*
-  // the mempool_items from the server.
-  bool exclude_confirmed_items = 4;
-  // If true, and if offset=0 or if offet+start_height > chain_height, then items
-  // currently in the mempool will be included in mempool_items in the
+  message ConfirmedPageWindow {
+    // The start height from which to retrieve the history. 0 for the beginning
+    // of time.
+    uint32 start_height = 2;
+    // The offset from start_height at which to end the history retrieval --
+    // exclusive range end; eg [start_height, start_height+offset) will be
+    // retrieved. offset=0 is a special case which will retrieve all
+    // confirmed_items from start_height up to present.
+    uint32 offset = 3;
+  }
+  // If empty, confirmed_items will always be empty.
+  ConfirmedPageWindow page_size = 3;
+  // If true, and if offset=0 or if offet+start_height > chain_height, then
+  // items currently in the mempool will be included in mempool_items in the
   // ScriptHashHistoryResponse.
   bool include_mempool_items = 5;
 }
