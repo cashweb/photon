@@ -48,8 +48,8 @@ message ScriptHashHistoryResponse {
     bytes tx_hash = 1;
     // The transaction fee in satoshis
     uint64 fee = 2;
-    // If true, the tx in question has at least 1 input that is also in the mempool (is unconfirmed)
-    // If false, all inputs to this tx are confirmed.
+    // If true, the tx in question has at least 1 input that is also in the
+    // mempool (is unconfirmed) If false, all inputs to this tx are confirmed.
     bool has_unconfirmed_parent = 3;
   }
   repeated ConfirmedItem confirmed_items = 1;
@@ -74,8 +74,9 @@ message ListUnspentResponse {
       // The output’s value in satoshis
       uint64 value = 2;
     }
-    // This array usually has 1 item, but it may have more if for some reason this script_hash appeared in the
-    // same tx as multiple outputs (a rare occurence, but can happen).
+    // This array usually has 1 item, but it may have more if for some reason
+    // this script_hash appeared in the same tx as multiple outputs (a rare
+    // occurence, but can happen).
     repeated OutputItem output_items = 3;
   }
   repeated UnspentItem items = 1;
@@ -87,8 +88,8 @@ message SubscribeScriptHashRequest {
 }
 
 message SubscribeScriptHashResponse {
-  // The confirmed status of the script hash. This is the hash256 of: all confirmed
-  // transaction hashes relevant to this script hash, in height then
+  // The confirmed status of the script hash. This is the hash256 of: all
+  // confirmed transaction hashes relevant to this script hash, in height then
   // lexicographical order.
   bytes confirmed_status = 1;
   // The unconfirmed status of the script hash. This is the hash256 of: the
