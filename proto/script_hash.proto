@@ -100,11 +100,9 @@ service ScriptHash {
   // Return the confirmed and unconfirmed balances of a script hash.
   rpc Balance(BalanceRequest) returns (BalanceResponse);
   // Return the confirmed and unconfirmed history of a script hash.
-  rpc History(HistoryRequest)
-      returns (HistoryResponse);
+  rpc History(HistoryRequest) returns (HistoryResponse);
   // Return an ordered list of UTXOs sent to a script hash.
   rpc ListUnspent(ListUnspentRequest) returns (ListUnspentResponse);
   // Subscribe to a script hash.
-  rpc Subscribe(SubscribeRequest)
-      returns (stream SubscribeResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
 }

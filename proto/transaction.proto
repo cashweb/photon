@@ -72,8 +72,7 @@ message IdFromPosResponse {
 
 service Transaction {
   // Broadcast a transaction to the network.
-  rpc Broadcast(BroadcastRequest)
-      returns (BroadcastResponse);
+  rpc Broadcast(BroadcastRequest) returns (BroadcastResponse);
   // Return a raw transaction.
   rpc Transaction(TransactionRequest) returns (TransactionResponse);
   // Return the merkle branch of a confirmed transaction given its hash.
