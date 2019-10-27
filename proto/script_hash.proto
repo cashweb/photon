@@ -20,19 +20,18 @@ message HistoryRequest {
   message ConfirmedPageWindow {
     // The start height from which to retrieve the history. 0 for the beginning
     // of time.
-    uint32 start_height = 2;
+    uint32 start_height = 1;
     // The offset from start_height at which to end the history retrieval --
-    // exclusive range end; eg [start_height, start_height+offset) will be
-    // retrieved. offset=0 is a special case which will retrieve all
+    // exclusive range end; eg [start_height, start_height+end_offset) will be
+    // retrieved. end_offset=0 is a special case which will retrieve all
     // confirmed_items from start_height up to present.
-    uint32 offset = 3;
+    uint32 end_offset = 2;
   }
-  // If empty, confirmed_items will always be empty.
-  ConfirmedPageWindow page_size = 3;
-  // If true, and if offset=0 or if offet+start_height > chain_height, then
-  // items currently in the mempool will be included in mempool_items in the
-  // HistoryResponse.
-  bool include_mempool_items = 5;
+  // If empty, confirmed_items in the HistoryResponse will always be empty.
+  ConfirmedPageWindow page_size = 2;
+  // If true, then items currently in the mempool will be included in mempool_items
+  // in the HistoryResponse.
+  bool include_mempool_items = 3;
 }
 
 message HistoryResponse {
