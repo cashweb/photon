@@ -1,0 +1,20 @@
+[package]
+name = "photon"
+version = "0.1.0"
+authors = ["Harry Barber <harrybarber@protonmail.com>"]
+edition = "2018"
+description = "Photon is a high performance wallet backend."
+
+[dependencies]
+bytes = "*"
+clap = "*"
+config = "*"
+lazy_static = "*"
+serde = "*"
+serde_derive = "*"
+tokio = "0.2.0-alpha.6"
+tonic = "0.1.0-alpha.3"
+prost = "*"
+
+[build-dependencies]
+tonic-build = "0.1.0-alpha.3"

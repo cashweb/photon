@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package wish_list;
+
+message TXOInfoRequest {
+    message TXO {
+        // The transaction hash as bytes
+        bytes txid = 1;
+        // The transaction output's 0-indexed position in txid
+        uint32 pos = 2;
+    }
+    // The list of txo's we are querying about
+    repeated TXO txos = 1;
+}
+
+message TXOInfoResponse {
+    message TXOInfo {
+        // The actual output script as it appeared in the tx. This can be further parsed by the client to derive the address.
+        bytes script = 1;
+        // The output's amount in satoshis
+        uint64 amount = 2;
+
+        message SpentInfo {
+            // If not empty, the txid that spent this output
+            bytes txid  = 1; //< Note to Harry: if this proves costly performance-wise to obtain, just a bool here if it was spent would also help!
+            // The input number in txid where this txo appears.
+            uint32 pos = 2; //< Note to Harry: again, these two fields can just be collapsed down to a bool...
+        }
+        // Note to Harry: I'm not sure the performance implications of this. If it's too slow we can just replace
+        // this with a bool "is_spent".
+
+        // if defined, was spent. Info on where it was spent. If not defined, this txo has not yet been spent (is a utxo)
+        SpentInfo spent = 3;
+    }
+    // The mapping of i -> TXOInfo for each txo requeted in: TXOInfoRequest.txos[i].
+    // If an index, i, from the request is missing from this map, that indicates the requested txo was not found
+    // and does not exist. Otherwise valid data will be contained in the TXOInfo value.
+    map<uint32, TXOInfo> txos = 1;
+}
+
+service WishList {
+    // Get information on some txo's, such as script, value and/or if it was spent and where it was spent.
+    rpc TXOInfo(TXOInfoRequest) returns (TXOInfoResponse);
+}
