@@ -7,3 +7,5 @@
 
 examples/*_pb2.py
 examples/*_pb2_grpc.py
+
+examples/__pycache__/
