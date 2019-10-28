@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package server;
+package utility;
 
 import "google/protobuf/empty.proto";
 
@@ -9,12 +9,12 @@ message BannerResponse {
   string banner = 1;
 }
 
-message DonnationAddressResponse {
+message DonationAddressResponse {
   // A string.
   string address = 1;
 }
 
-message VersionMessage {
+message VersionResponse {
   // Any string name of the server or client's user agent. For stats purposes 
   // only; may be empty, does not (usually) affect protocol behavior or 
   // anything else. E.g.: "Electron-Cash", "BobsServerImpl", etc.
@@ -23,14 +23,13 @@ message VersionMessage {
   string version = 2;
 }
 
-service Server {
+service Utility {
   // Return a banner to be shown in the Electron Cash console.
   rpc Banner(google.protobuf.Empty) returns (BannerResponse);
   // Return a server donation address.
-  rpc DonationAddress(google.protobuf.Empty) returns (BannerResponse);
+  rpc DonationAddress(google.protobuf.Empty) returns (DonationAddressResponse);
   // Ping the server to ensure it is responding.
   rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
-  // Identify the client to the server and negotiate the protocol version. Only
-  // the first server.version() message is accepted.
-  rpc Version(VersionMessage) returns (VersionMessage);
+  // Return the server version.
+  rpc Version(google.protobuf.Empty) returns (VersionResponse);
 }

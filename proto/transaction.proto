@@ -2,12 +2,12 @@ syntax = "proto3";
 
 package transaction;
 
-message BroadcastTransactionRequest {
+message BroadcastRequest {
   // The raw transaction.
   bytes raw_tx = 1;
 }
 
-message BroadcastTransactionResponse {
+message BroadcastResponse {
   // The transaction hash as a byte array.
   bytes tx_hash = 1;
 }
@@ -72,8 +72,7 @@ message IdFromPosResponse {
 
 service Transaction {
   // Broadcast a transaction to the network.
-  rpc BroadcastTransaction(BroadcastTransactionRequest)
-      returns (BroadcastTransactionResponse);
+  rpc Broadcast(BroadcastRequest) returns (BroadcastResponse);
   // Return a raw transaction.
   rpc Transaction(TransactionRequest) returns (TransactionResponse);
   // Return the merkle branch of a confirmed transaction given its hash.
