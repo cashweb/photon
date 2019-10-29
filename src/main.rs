@@ -25,6 +25,14 @@ lazy_static! {
             .short("b")
             .help("Sets server bind address")
             .takes_value(true))
+        .arg(Arg::with_name("banner")
+            .long("banner")
+            .help("Sets server banner")
+            .takes_value(true))
+        .arg(Arg::with_name("donation-address")
+            .long("donation-address")
+            .help("Sets donation address")
+            .takes_value(true))
         .get_matches();
 
     // Fetch settings
