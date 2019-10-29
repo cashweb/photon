@@ -1,18 +1,17 @@
 #[macro_use]
 extern crate lazy_static;
 
+use std::sync::Arc;
+
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::transport::Server;
 
-pub mod utility {
-    tonic::include_proto!("utility");
-}
-pub mod transaction {
-    tonic::include_proto!("transaction");
-}
+use crate::router::Router;
+
+pub mod router;
 pub mod settings;
-
-const AGENT: &str = "";
+pub mod transaction;
+pub mod utility;
 
 lazy_static! {
     // Declare APP and get matches
@@ -39,55 +38,24 @@ lazy_static! {
     static ref SETTINGS: settings::Settings = settings::Settings::fetch().unwrap();
 }
 
-#[derive(Default)]
-pub struct Daemon {}
-
-#[tonic::async_trait]
-impl utility::server::Utility for Daemon {
-    async fn banner(
-        &self,
-        _request: Request<()>,
-    ) -> Result<Response<utility::BannerResponse>, Status> {
-        let reply = utility::BannerResponse {
-            banner: SETTINGS.banner.clone(),
-        };
-        Ok(Response::new(reply))
-    }
-
-    async fn donation_address(
-        &self,
-        _request: Request<()>,
-    ) -> Result<Response<utility::DonationAddressResponse>, Status> {
-        let reply = utility::DonationAddressResponse {
-            address: SETTINGS.donation_address.clone(),
-        };
-        Ok(Response::new(reply))
-    }
-
-    async fn ping(&self, _request: Request<()>) -> Result<Response<()>, Status> {
-        Ok(Response::new(()))
-    }
-
-    async fn version(
-        &self,
-        _request: Request<()>,
-    ) -> Result<Response<utility::VersionResponse>, Status> {
-        let reply = utility::VersionResponse {
-            agent: AGENT.to_string(),
-            version: crate_version!().to_string(),
-        };
-        Ok(Response::new(reply))
-    }
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = SETTINGS.bind.parse().unwrap();
     println!("starting server @ {}", addr);
-    let daemon = Daemon::default();
-    Server::builder()
-        .serve(addr, utility::server::UtilityServer::new(daemon))
-        .await?;
+
+    // Construct utility service
+    let utility_service = utility::UtilityService {};
+
+    // Construct transaction service
+    let transaction_service = transaction::TransactionService {};
+
+    // Aggregate services using router
+    // TODO: Replace when routing is natively supported
+    let router = Router {
+        utility_service: Arc::new(utility_service),
+        transaction_service: Arc::new(transaction_service),
+    };
+    Server::builder().serve(addr, router).await?;
 
     Ok(())
 }
