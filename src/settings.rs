@@ -37,7 +37,9 @@ impl Settings {
         if let Some(banner) = CLI_ARGS.value_of("banner") {
             settings.set("banner", banner).unwrap();
         }
-
+        if let Some(address) = CLI_ARGS.value_of("donation-address") {
+            settings.set("donation_address", address).unwrap();
+        }
         settings.try_into()
     }
 }
