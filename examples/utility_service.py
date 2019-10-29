@@ -14,3 +14,7 @@ print(version)
 # Get banner
 banner = stub.Banner(empty_pb2.Empty()).banner
 print(banner)
+
+# Get donation address
+address = stub.DonationAddress(empty_pb2.Empty()).address
+print(address)
