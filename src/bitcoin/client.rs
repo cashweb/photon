@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::net::jsonrpc_client::*;
 
-enum BitcoinError {
+pub enum BitcoinError {
     Client(ClientError),
     Decoding(hex::FromHexError),
 }
