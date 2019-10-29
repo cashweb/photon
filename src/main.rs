@@ -8,6 +8,7 @@ use tonic::transport::Server;
 
 use crate::router::Router;
 
+pub mod jsonrpc_client;
 pub mod router;
 pub mod settings;
 pub mod transaction;

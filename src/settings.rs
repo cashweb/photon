@@ -1,5 +1,5 @@
 use config::{Config, ConfigError, Environment, File};
-use serde_derive::Deserialize;
+use serde::Deserialize;
 
 use crate::CLI_ARGS;
 
