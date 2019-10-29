@@ -6,13 +6,11 @@ use std::sync::Arc;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use tonic::transport::Server;
 
-use crate::router::Router;
+use crate::net::{router::Router, transaction, utility};
 
-pub mod jsonrpc_client;
-pub mod router;
+pub mod bitcoin;
+pub mod net;
 pub mod settings;
-pub mod transaction;
-pub mod utility;
 
 lazy_static! {
     // Declare APP and get matches

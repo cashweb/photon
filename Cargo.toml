@@ -9,6 +9,7 @@ description = "Photon is a high performance wallet backend."
 bytes = "*"
 clap = "*"
 config = "*"
+hex = "*"
 http = "*"
 lazy_static = "*"
 reqwest = { version = "0.10.0-alpha.1", features = ["json"] }

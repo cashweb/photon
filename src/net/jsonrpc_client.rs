@@ -63,14 +63,16 @@ impl JsonClient {
         let request_id = request.id.clone();
         let response = request_builder
             .json(request)
-            .send().await.map_err(ClientError::from)?;
+            .send()
+            .await
+            .map_err(ClientError::from)?;
 
         // Parse response
         let json_response: Response = response.json().await?;
 
         // Check IDs match
         if json_response.id != request_id {
-            return Err(ClientError::NonceMismatch)
+            return Err(ClientError::NonceMismatch);
         }
 
         Ok(json_response)
