@@ -3,6 +3,32 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, value::from_value, Value};
 
+#[derive(Debug)]
+pub enum ClientError {
+    /// Json decoding error.
+    Json(serde_json::Error),
+    /// Client error
+    Client(reqwest::Error),
+    /// Rpc error,
+    Rpc(serde_json::Value),
+    /// Response has neither error nor result.
+    NoErrorOrResult,
+    /// Response to a request did not have the expected nonce
+    NonceMismatch,
+}
+
+impl From<serde_json::Error> for ClientError {
+    fn from(e: serde_json::Error) -> Self {
+        ClientError::Json(e)
+    }
+}
+
+impl From<reqwest::Error> for ClientError {
+    fn from(e: reqwest::Error) -> Self {
+        ClientError::Client(e)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Request {
     pub method: String,
@@ -86,31 +112,5 @@ impl JsonClient {
             params,
             id: json!(self.nonce.load(SeqCst)),
         }
-    }
-}
-
-#[derive(Debug)]
-pub enum ClientError {
-    /// Json decoding error.
-    Json(serde_json::Error),
-    /// Client error
-    Client(reqwest::Error),
-    /// Rpc error,
-    Rpc(serde_json::Value),
-    /// Response has neither error nor result.
-    NoErrorOrResult,
-    /// Response to a request did not have the expected nonce
-    NonceMismatch,
-}
-
-impl From<serde_json::Error> for ClientError {
-    fn from(e: serde_json::Error) -> ClientError {
-        ClientError::Json(e)
-    }
-}
-
-impl From<reqwest::Error> for ClientError {
-    fn from(e: reqwest::Error) -> ClientError {
-        ClientError::Client(e)
     }
 }

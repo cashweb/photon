@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use serde::Deserialize;
 use serde_json::Value;
 
 use crate::net::jsonrpc_client::*;
@@ -7,12 +8,31 @@ use crate::net::jsonrpc_client::*;
 pub enum BitcoinError {
     Client(ClientError),
     Decoding(hex::FromHexError),
+    NoActiveTip,
 }
 
 impl From<ClientError> for BitcoinError {
-    fn from(err: ClientError) -> BitcoinError {
+    fn from(err: ClientError) -> Self {
         BitcoinError::Client(err)
     }
+}
+
+impl From<hex::FromHexError> for BitcoinError {
+    fn from(err: hex::FromHexError) -> Self {
+        BitcoinError::Decoding(err)
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ChainTipStatus {
+    height: u32,
+    hash: String,
+    status: String,
+}
+
+pub struct ChainTip {
+    height: u32,
+    hash: Vec<u8>,
 }
 
 #[derive(Clone)]
@@ -29,12 +49,12 @@ impl BitcoinClient {
             "sendrawtransaction".to_string(),
             vec![Value::String(hex::encode(raw_tx))],
         );
-        let response_str = self
+        let tx_id_hex = self
             .0
             .send_request(&request)
             .await?
             .into_result::<String>()?;
-        hex::decode(response_str).map_err(BitcoinError::Decoding)
+        Ok(hex::decode(tx_id_hex)?)
     }
 
     /// Get raw transaction from Bitcoin network
@@ -43,11 +63,82 @@ impl BitcoinClient {
             "getrawtransaction".to_string(),
             vec![Value::String(hex::encode(tx_id))],
         );
-        let response_str = self
+        let raw_tx_hex = self
             .0
             .send_request(&request)
             .await?
             .into_result::<String>()?;
-        hex::decode(response_str).map_err(BitcoinError::Decoding)
+        Ok(hex::decode(raw_tx_hex)?)
+    }
+
+    /// Get block hash from height
+    pub async fn block_hash(&self, height: u32) -> Result<Vec<u8>, BitcoinError> {
+        let request = self.0.build_request(
+            "getblockhash".to_string(),
+            vec![Value::Number(height.into())],
+        );
+        let block_hash_hex = self
+            .0
+            .send_request(&request)
+            .await?
+            .into_result::<String>()?;
+        Ok(hex::decode(block_hash_hex)?)
+    }
+
+    /// Get block from block hash
+    pub async fn block(&self, block_hash: &[u8]) -> Result<Vec<u8>, BitcoinError> {
+        let request = self.0.build_request(
+            "getblock".to_string(),
+            vec![Value::String(hex::encode(block_hash))],
+        );
+        let block_hex = self
+            .0
+            .send_request(&request)
+            .await?
+            .into_result::<String>()?;
+        Ok(hex::decode(block_hex)?)
+    }
+
+    /// Get block from height
+    pub async fn block_from_height(&self, height: u32) -> Result<Vec<u8>, BitcoinError> {
+        // Get block hash
+        let request = self.0.build_request(
+            "getblockhash".to_string(),
+            vec![Value::Number(height.into())],
+        );
+        let block_hash_hex = self
+            .0
+            .send_request(&request)
+            .await?
+            .into_result::<String>()?;
+
+        // Get block
+        let request = self
+            .0
+            .build_request("getblock".to_string(), vec![Value::String(block_hash_hex)]);
+        let block_hex = self
+            .0
+            .send_request(&request)
+            .await?
+            .into_result::<String>()?;
+        Ok(hex::decode(block_hex)?)
+    }
+
+    /// Get current chaintip
+    pub async fn chaintip(&self) -> Result<ChainTip, BitcoinError> {
+        let request = self.0.build_request("getchaintips".to_string(), vec![]);
+        let chain_tips = self
+            .0
+            .send_request(&request)
+            .await?
+            .into_result::<Vec<ChainTipStatus>>()?;
+        let tip_status = chain_tips
+            .iter()
+            .find(|tip| tip.status == "active".to_string())
+            .ok_or(BitcoinError::NoActiveTip)?;
+        Ok(ChainTip {
+            height: tip_status.height,
+            hash: hex::decode(&tip_status.hash)?,
+        })
     }
 }

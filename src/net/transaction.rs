@@ -29,8 +29,8 @@ impl model::server::Transaction for TransactionService {
                     // Any non-rpc error indicates an internal error
                     _ => Status::new(Code::Internal, String::new()),
                 },
-                // Failed hex decoding is an internal error
-                BitcoinError::Decoding(_) => Status::new(Code::Internal, String::new()),
+                // Else internal errors
+                _ => Status::new(Code::Internal, String::new()),
             })?;
         let reply = model::BroadcastResponse { tx_hash };
         Ok(Response::new(reply))
