@@ -6,9 +6,11 @@ edition = "2018"
 description = "Photon is a high performance wallet backend."
 
 [dependencies]
+bitcoin = "*"
 bytes = "*"
 clap = "*"
 config = "*"
+futures-preview = "=0.3.0-alpha.19"
 hex = "*"
 http = "*"
 lazy_static = "*"
