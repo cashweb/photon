@@ -1,6 +1,11 @@
 #[macro_use]
 extern crate lazy_static;
 
+pub mod bitcoin;
+pub mod net;
+pub mod settings;
+pub mod state;
+
 use std::sync::Arc;
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
@@ -11,10 +16,7 @@ use crate::{
     net::{router::Router, transaction, utility},
 };
 
-pub mod bitcoin;
-pub mod net;
-pub mod settings;
-pub mod state;
+use state::StateMananger;
 
 lazy_static! {
     // Declare APP and get matches
@@ -50,6 +52,9 @@ lazy_static! {
 
     // Fetch settings
     static ref SETTINGS: settings::Settings = settings::Settings::fetch().unwrap();
+
+    // Init state manager
+    static ref STATE_MANAGER: StateMananger = StateMananger::default();
 }
 
 #[tokio::main]
