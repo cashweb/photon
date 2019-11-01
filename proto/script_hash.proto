@@ -23,7 +23,7 @@ message HistoryRequest {
     uint32 start_height = 1;
     // If set, begin the history download from block number start_height, at
     // start_pos within the block.  See the explanation of HistoryResponse::ContinuationSpec
-    // below.
+    // below.  Use 0 to begin retrieving at the beginning of the block at start_height.
     uint32 start_pos = 2;
     // The offset from start_height at which to end the history retrieval --
     // exclusive range end; eg [start_height, start_height+end_offset) will be
