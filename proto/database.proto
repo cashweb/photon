@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package database;
+
+// Mimics the TransactionResponse message in transaction package
+message TransactionEntry {
+  // The raw transaction. Empty when not cached.
+  bytes raw_tx = 1;
+  // The height of the block the transaction was confirmed in.
+  uint32 block_height = 2;
+  // A list of transaction hashes the current hash is paired with, recursively,
+  // in order to trace up to obtain merkle root of the block, deepest pairing
+  // first.
+  repeated bytes merkle = 3;
+  // The 0-based index of the position of the transaction in the ordered list of
+  // transactions in the block.
+  uint32 pos = 4;
+}
+
+// Mimics HeadersResponse message in header package
+message HeaderEntry {
+  // The raw block headers in-order.
+  bytes header = 1;
+
+  // Merkle root of the header tree.
+  bytes root = 2;
+  // The merkle branch of the last returned header up to root, deepest pairing
+  // first.
+  repeated bytes branch = 3;
+}
+
+// Mimics the ConfirmedItem message in script_hash package
+message ScriptHashItem {
+  // The integer height of the block the transaction was confirmed in.
+  uint32 height = 1;
+  // The transaction hash as bytes.
+  bytes tx_hash = 2;
+}
+
+// Cache the result of previous confirmed_status responses (see
+// script_hash.proto, SubscribeResponse).
+//
+// Since the `confirmed_status`es are a recursive hash of:
+//     Hash(confirmed_status_prev + txid + height), you want to remember
+// 'confirmed_status_prev' so you can continue to update the status hash as
+// new confirmed tx's come in from the network as blocks are confirmed, without
+// having to look at all the previous tx's for that script_hash (this is a
+// server-side performance improvement over ElectrumX).  This data structure
+// allows for remembering what was last computed and bulding the updated status
+// hash on top of that information.
+//
+// Items in the cache are updated only when there are active subscriptions to a
+// script_hash (eg clients are connected), and left un-updated after they
+// disconnect and the script_hash's client refct drops to 0.
+message ScriptHashCacheItem {
+  // The script_hash in question
+  bytes script_hash = 1;
+  // The last SubscribeResponse.confirmed_status computed for this script_hash
+  // (we will build on this when updating the status, then write back to this
+  // field when it's updated).
+  bytes cached_status = 2;
+  // The last full confirmed block that cached_status covers.
+  uint32 cached_status_height = 3;
+}
