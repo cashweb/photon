@@ -3,7 +3,10 @@ use std::sync::{
     RwLock,
 };
 
-use crossbeam::queue::{ArrayQueue, PushError};
+use crossbeam::{
+    queue::{ArrayQueue, PushError},
+    utils::CachePadded,
+};
 use futures::channel::oneshot;
 
 const RESUME_QUEUE_SIZE: usize = 2048;
@@ -23,7 +26,7 @@ pub struct StateMananger {
     /// Stores resume channel senders
     resume_queue: ArrayQueue<oneshot::Sender<bool>>,
     /// Stores the number of active requests
-    active_counter: AtomicUsize,
+    active_counter: CachePadded<AtomicUsize>,
 }
 
 impl Default for StateMananger {
@@ -31,7 +34,7 @@ impl Default for StateMananger {
         StateMananger {
             state: RwLock::new(State::Syncing),
             resume_queue: ArrayQueue::new(RESUME_QUEUE_SIZE),
-            active_counter: AtomicUsize::new(0),
+            active_counter: CachePadded::new(AtomicUsize::new(0)),
         }
     }
 }
