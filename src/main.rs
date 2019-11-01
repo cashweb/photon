@@ -2,6 +2,7 @@
 extern crate lazy_static;
 
 pub mod bitcoin;
+pub mod db;
 pub mod net;
 pub mod settings;
 pub mod state;
