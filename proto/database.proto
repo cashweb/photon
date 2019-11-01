@@ -36,3 +36,29 @@ message ScriptHashItem {
   // The transaction hash as bytes.
   bytes tx_hash = 2;
 }
+
+// Cache the result of previous confirmed_status responses (see
+// script_hash.proto, SubscribeResponse).
+//
+// Since the `confirmed_status`es are a recursive hash of:
+//     Hash(confirmed_status_prev + txid + height), you want to remember
+// 'confirmed_status_prev' so you can continue to update the status hash as
+// new confirmed tx's come in from the network as blocks are confirmed, without
+// having to look at all the previous tx's for that script_hash (this is a
+// server-side performance improvement over ElectrumX).  This data structure
+// allows for remembering what was last computed and bulding the updated status
+// hash on top of that information.
+//
+// Items in the cache are updated only when there are active subscriptions to a
+// script_hash (eg clients are connected), and left un-updated after they
+// disconnect and the script_hash's client refct drops to 0.
+message ScriptHashCacheItem {
+  // The script_hash in question
+  bytes script_hash = 1;
+  // The last SubscribeResponse.confirmed_status computed for this script_hash
+  // (we will build on this when updating the status, then write back to this
+  // field when it's updated).
+  bytes cached_status = 2;
+  // The last full confirmed block that cached_status covers.
+  uint32 cached_status_height = 3;
+}
