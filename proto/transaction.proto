@@ -21,26 +21,7 @@ message TransactionRequest {
   bool merkle = 3;
 }
 
-message TransactionResponse {
-  // The raw transaction.
-  bytes raw_tx = 1;
-  // The height of the block the transaction was confirmed in.
-  uint32 block_height = 2;
-  // A list of transaction hashes the current hash is paired with, recursively,
-  // in order to trace up to obtain merkle root of the block, deepest pairing
-  // first.
-  repeated bytes merkle = 3;
-  // The 0-based index of the position of the transaction in the ordered list of
-  // transactions in the block.
-  uint32 pos = 4;
-}
-
-message MerkleBranchRequest {
-  // The transaction hash as a byte array.
-  bytes tx_hash = 1;
-}
-
-message MerkleBranchResponse {
+message TxMerkleInfo {
   // The height of the block the transaction was confirmed in.
   uint32 block_height = 1;
   // A list of transaction hashes the current hash is paired with, recursively,
@@ -50,6 +31,25 @@ message MerkleBranchResponse {
   // The 0-based index of the position of the transaction in the ordered list of
   // transactions in the block.
   uint32 pos = 3;
+}
+
+message TransactionResponse {
+  // The raw transaction.
+  bytes raw_tx = 1;
+
+  // If the TransactionRequest.merkle field was set to true, this will contain
+  // the merkle information for the transaction in question, otherwise it will
+  // be empty.
+  TxMerkleInfo merkle = 2;
+}
+
+message MerkleBranchRequest {
+  // The transaction hash as a byte array.
+  bytes tx_hash = 1;
+}
+
+message MerkleBranchResponse {
+  TxMerkleInfo merkle = 1;
 }
 
 message IdFromPosRequest {
