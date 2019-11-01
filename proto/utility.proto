@@ -14,11 +14,11 @@ message DonationAddressResponse {
   string address = 1;
 }
 
-message VersionResponse {
-  // Any string name of the server or client's user agent. For stats purposes 
-  // only; may be empty, does not (usually) affect protocol behavior or 
+message VersionInfo {
+  // Any string name of the server or client's user agent. For stats purposes
+  // only; may be empty, does not (usually) affect protocol behavior or
   // anything else. E.g.: "Electron-Cash", "BobsServerImpl", etc.
-  string agent = 1; 
+  string agent = 1;
   // Version number X.Y.Z form (or X.Y)
   string version = 2;
 }
@@ -30,6 +30,7 @@ service Utility {
   rpc DonationAddress(google.protobuf.Empty) returns (DonationAddressResponse);
   // Ping the server to ensure it is responding.
   rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
-  // Return the server version.
-  rpc Version(google.protobuf.Empty) returns (VersionResponse);
+  // Announces the client version and user agent to the server.
+  // The server will then reply with its version information as well.
+  rpc Version(VersionInfo) returns (VersionInfo);
 }
