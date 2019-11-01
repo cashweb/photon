@@ -14,6 +14,7 @@ use crate::{
 pub mod bitcoin;
 pub mod net;
 pub mod settings;
+pub mod state;
 
 lazy_static! {
     // Declare APP and get matches
