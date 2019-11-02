@@ -39,7 +39,7 @@ impl model::server::Utility for UtilityService {
 
     async fn version(
         &self,
-        _request: Request<()>,
+        _request: Request<model::VersionRequest>,
     ) -> Result<Response<model::VersionResponse>, Status> {
         let reply = model::VersionResponse {
             agent: AGENT.to_string(),
