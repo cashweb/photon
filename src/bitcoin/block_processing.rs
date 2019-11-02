@@ -68,6 +68,9 @@ pub async fn par_process_block_stream(
                 res_vec
                     .into_iter()
                     .map(move |(block_height, block): (u32, Block)| {
+                        if block_height % 1_000 == 0 {
+                            info!("processed block {}", block_height);
+                        }
                         // Process transactions
                         let txs = block.txdata;
                         process_transactions(block_height, txs, db_inner.clone())

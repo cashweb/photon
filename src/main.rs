@@ -84,6 +84,8 @@ impl From<BlockProcessingError> for SyncingError {
 }
 
 async fn synchronize(bitcoin_client: BitcoinClient, db: Database) -> Result<(), SyncingError> {
+    info!("starting synchronization...");
+
     // Get current chain height
     let block_count = bitcoin_client
         .block_count()
@@ -95,12 +97,21 @@ async fn synchronize(bitcoin_client: BitcoinClient, db: Database) -> Result<(), 
     // Get oldest valid block
     // TODO: Scan database for this
     let earliest_valid_height: u32 = 0;
+    info!("earliest valid height: {}...", earliest_valid_height);
 
     let raw_block_stream = bitcoin_client.raw_block_stream(earliest_valid_height, block_count);
 
-    Ok(par_process_block_stream(raw_block_stream, db)
+    // Begin processing blocks
+    info!(
+        "processing blocks {} to {}...",
+        earliest_valid_height, block_count
+    );
+    let result = par_process_block_stream(raw_block_stream, db)
         .map_err(SyncingError::BlockProcessing)
-        .await?)
+        .await?;
+
+    info!("completed synchronization");
+    Ok(result)
 }
 
 #[derive(Debug)]

@@ -62,6 +62,7 @@ impl BitcoinClient {
     /// Get raw transaction from Bitcoin network
     pub async fn raw_tx(&self, tx_id: &[u8; 32]) -> Result<Vec<u8>, BitcoinError> {
         // Reverse tx_id before hex encoding
+        trace!("fetching raw transaction with id {}...", hex::encode(tx_id));
         let mut tx_id_rev: [u8; 32] = [0; 32];
         for (i, byte) in tx_id.iter().rev().enumerate() {
             tx_id_rev[i] = *byte;
@@ -80,7 +81,7 @@ impl BitcoinClient {
 
     /// Get block hash from height
     pub async fn block_hash(&self, height: u32) -> Result<Vec<u8>, BitcoinError> {
-        info!("fetching block from height {}...", height);
+        trace!("fetching block from height {}...", height);
         let request = self.0.build_request(
             "getblockhash".to_string(),
             vec![Value::Number(height.into())],
@@ -95,7 +96,7 @@ impl BitcoinClient {
 
     /// Get block from block hash
     pub async fn block(&self, block_hash: &[u8]) -> Result<Vec<u8>, BitcoinError> {
-        info!("fetching block with hash {}...", hex::encode(block_hash));
+        trace!("fetching block with hash {}...", hex::encode(block_hash));
         let request = self.0.build_request(
             "getblock".to_string(),
             vec![Value::String(hex::encode(block_hash))],
@@ -110,7 +111,7 @@ impl BitcoinClient {
 
     /// Get block from height
     pub async fn block_from_height(&self, height: u32) -> Result<Vec<u8>, BitcoinError> {
-        info!("fetching block hash from height {}...", height);
+        trace!("fetching block hash from height {}...", height);
         // Get block hash
         let request = self.0.build_request(
             "getblockhash".to_string(),
@@ -123,7 +124,7 @@ impl BitcoinClient {
             .into_result::<String>()?;
 
         // Get block
-        info!("fetching block with hash {}...", block_hash_hex);
+        trace!("fetching block with hash {}...", block_hash_hex);
         let request = self.0.build_request(
             "getblock".to_string(),
             vec![Value::String(block_hash_hex), Value::Bool(false)],
@@ -138,7 +139,7 @@ impl BitcoinClient {
 
     /// Get current chain tip
     pub async fn chain_tip(&self) -> Result<ChainTip, BitcoinError> {
-        info!("fetching current chain tip...");
+        trace!("fetching current chain tip...");
         let request = self.0.build_request("getchaintips".to_string(), vec![]);
         let chain_tips = self
             .0
@@ -157,7 +158,7 @@ impl BitcoinClient {
 
     /// Get block count
     pub async fn block_count(&self) -> Result<u32, BitcoinError> {
-        info!("fetching block count...");
+        trace!("fetching block count...");
         let request = self.0.build_request("getblockcount".to_string(), vec![]);
         Ok(self.0.send_request(&request).await?.into_result::<u32>()?)
     }
