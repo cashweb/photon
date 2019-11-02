@@ -7,6 +7,7 @@ use rocksdb::Error as RocksError;
 
 use crate::db::{model::TransactionEntry, Database};
 
+#[derive(Debug)]
 pub enum TxProcessingError {
     Database(RocksError),
 }

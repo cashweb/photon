@@ -7,6 +7,7 @@ use tokio::prelude::*;
 
 use crate::net::jsonrpc_client::*;
 
+#[derive(Debug)]
 pub enum BitcoinError {
     Client(ClientError),
     Decoding(hex::FromHexError),

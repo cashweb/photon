@@ -6,6 +6,7 @@ use crate::db::Database;
 
 const BLOCK_PROCESSING_CONCURRENCY: usize = 8;
 
+#[derive(Debug)]
 pub enum BlockProcessingError {
     Bitcoin(BitcoinError),
     BlockDecoding(ConsensusError),

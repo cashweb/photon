@@ -67,6 +67,7 @@ lazy_static! {
     static ref STATE_MANAGER: StateMananger = StateMananger::default();
 }
 
+#[derive(Debug)]
 enum SyncError {
     Chaintip(BitcoinError),
 }
