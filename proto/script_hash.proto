@@ -78,7 +78,7 @@ message HistoryResponse {
   // to continue the history download where it last left off (by issuing a subsequent HistoryRequest starting
   // from the positions specified in these fields -- thus, pagination of long histories is supported using
   // this scheme).
-  ContinationSpec confirmed_continuation = 2;
+  ContinuationSpec confirmed_continuation = 2;
 
   // If `include_mempool_items` was set to true in the HistoryRequest, this will be populated with
   // unconfirmed (mempool) tx's for this script_hash, if any such tx's exist.
