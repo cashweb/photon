@@ -43,7 +43,6 @@ impl Settings {
         let mut default_db = home_dir.clone();
         default_db.push(DEFAULT_DB_PATH);
         settings.set_default("db_path", default_db.to_str())?;
-        settings.set_default("db_path", DEFAULT_DB_PATH)?;
         settings.set_default("donation_address", DEFAULT_DONATION_ADDRESS)?;
 
         // Merge with settings file
