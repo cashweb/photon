@@ -18,7 +18,7 @@ import time
 from typing import Any, Callable, Tuple, Union
 
 from grpclib.client import Channel
-from grpclib.exceptions import GRPCError
+from grpclib.exceptions import GRPCError, StreamTerminatedError, ProtocolError
 from grpclib.const import Status
 
 import google.protobuf.empty_pb2
@@ -30,8 +30,13 @@ from protos import utility_grpc
 from protos import transaction_pb2
 from protos import transaction_grpc
 
+class MalformedResponse(Exception):
+    ''' Thrown if the response from the server violates a guarantee
+    or is otherwise nonsensical. '''
+
 #### Utility functions (these are workalikes from Electron Cash codebase)
 import hashlib
+import itertools
 
 def Sha256(x: bytes) -> bytes:
     return hashlib.sha256(x).digest()
@@ -50,9 +55,23 @@ def Hash(x: Union[bytes, str, bytearray]) -> bytes:
     x = to_bytes(x, 'utf8')
     out = Sha256(Sha256(x))
     return out
-def HashR(x: Union[bytes, str, bytearray]) -> bytes:
+def RHash(x: Union[bytes, str, bytearray]) -> bytes:
     ''' Reversed Sha256d (a-la bitcoin) '''
     return Hash(x)[::-1]
+
+class Monotonic:
+    ''' Returns a monotonically increasing int each time an instance is called
+    as a function. Optionally thread-safe.'''
+    __slots__ = ('__call__',)
+    def __init__(self, locking=False, start=1):
+        counter = itertools.count(start)
+        self.__call__ = incr = lambda: next(counter)
+        if locking:
+            lock = threading.Lock()
+            def incr_with_lock():
+                with lock: return incr()
+            self.__call__ = incr_with_lock
+
 # /Utility functions
 
 
@@ -60,6 +79,7 @@ class Client:
     DEFAULT_HOST = '127.0.0.1'
     DEFAULT_PORT = 50051  # fixme
     trace = False
+    id_next = Monotonic(locking=True)
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, ssl: bool = False,
                  *, logger: Callable = None, dont_raise_on_error=False, trace=None):
@@ -70,6 +90,7 @@ class Client:
         self.utility: utility_grpc.UtilityStub = None
         self.transaction: transaction_grpc.TransactionStub = None
         self.loop = None
+        self.id = self.id_next()
         self.dont_raise_on_error = dont_raise_on_error
         if trace is not None: self.trace = trace  # specified instance-specific trace setting (otherwise we inherit class-level)
 
@@ -78,7 +99,7 @@ class Client:
             raise RuntimeError('Already running')
         self.loop = asyncio.new_event_loop()
         self.thr = threading.Thread(target=self._thrdFunc, daemon=True,
-                                    name=f"{__class__.__name__} {':'.join([str(x) for x in self.host_port])} (id:{id(self):x}) Async Thr")
+                                    name=f"{__class__.__name__} {self.id} {':'.join([str(x) for x in self.host_port])} Async Thr")
         self.thr.q = queue.Queue()
         self.thr.start()
         exc = self.thr.q.get(timeout=10.0)  # wait for thread to start before we return
@@ -169,14 +190,17 @@ class Client:
         if self.trace: self.logger(f"--> Sending transaction.Transaction('{tx_hash[:4].hex()}..{tx_hash[-4:].hex()}') ...")
         request = pb.TransactionRequest(tx_hash=tx_hash)
         reply: pb.TransactionResponse = await self.transaction.Transaction(request)
-        raw = reply.raw_tx or b''  # is this needed?
-        if self.trace: self.logger(f"<-- Got transaction.Transaction: {len(raw)} bytes ...")
+        tx_hash_server = reply.raw_tx and RHash(reply.raw_tx)
+        if tx_hash_server != tx_hash:
+            raise MalformedResponse('raw_tx data from server does not match the requested txid',
+                                    tx_hash_server.hex(), tx_hash.hex())
+        if self.trace: self.logger(f"<-- Got transaction.Transaction: {len(reply.raw_tx)} bytes ...")
         merkle_dict = dict()
         if reply.merkle:
             merkle_dict['block_height'] = reply.merkle.block_height
             merkle_dict['merkle'] = reply.merkle.merkle
             merkle_dict['pos'] = reply.merkle.pos
-        return { 'raw_tx': reply.raw_tx, 'merkle' : merkle_dict }
+        return { 'raw_tx': reply.raw_tx, 'merkle': merkle_dict }
 
 
     async def Sleeper(self, delay=5.0) -> int:
@@ -286,7 +310,7 @@ class Client:
     def Sleeper_CB(self, callback: Callable[[Union[int, Exception]], None], delay=5.0, *, timeout=10.0):
         self._do_cb(self.Sleeper(delay), callback, timeout=timeout)
 
-if __name__ == "__main__":
+def main():
     host = Client.DEFAULT_HOST
     port = Client.DEFAULT_PORT
     try:
@@ -306,33 +330,8 @@ if __name__ == "__main__":
     c.Banner_Sync()
     c.Ping_Sync()
     c.DonationAddress_Sync()
-    txns = [ '6a8226ad9980693ffbf41a15a1118fb73a9f68cda9c0b9951490bd03cb70d1d8',  # <-- early txid block <200
-             '41b48c64cba68c21e0b7b37f589408823f112bb7cbccef4aece29df25347ffb4',  # "
-             '71cbe112176d6dc40490dde588798bd75de80133438016a0c05754d74ee1925a',  # "
-             'a3e0b7558e67f5cadd4a3166912cbf6f930044124358ef3a9afd885ac391625d',  # "
-             'f399cb6c5bed7bb36d44f361c29dd5ecf12deba163470d8835b7ba0c4ed8aebd',  # "
-             '1abd5b2a5ef41b5636b18216518b77b854ac26b9923ec99c272dbd7236133176',  # <-- block 237000
-             '414318b20e42ecd9816610f95ae926dc5d9a5afbaff934277b75572f35197843',  # ""
-             '2ee90107999ad508097a8f9f804e78ada865c577851791fbdba469a58d4dabc9',  # <-- block 284784
-             '123a33e29879f7bef161b5059741af0ce6c594b7f04c08ef171612767950206c',  # <-- later txids height >500,000 (needs full synch)
-             '1caa134689ced460a154aed0357483462dab324da66bc927fbd6a1312adebee5',  # "
-             '06d29d7fbcbceed8bcb878d7a352a65123e515a7ad532a731a735ea040c7fdf4',  # "
-             'dfdd9fce1ea51b061e60592d66ab57d14e8e6f94deb2235e719ac0d2b9d2dc7f',  # "
-             'd8d170cb03bd901495b9c0a9cd689f3ab78f11a1151af4fb3f698099ad26826a',  # <-- reversed txid (should throw error NOT FOUND)
-             'b33ff00db33f00d00000000000000000000000000000000000000000deadb33f',  # <-- invalid txid (should always throw NOT FOUND)
-            ]
-    for tx_hash_hex in txns:
-        tx_hash = bytes.fromhex(tx_hash_hex)
-        try:
-            txd = c.Transaction_Sync(tx_hash, trace=False, dont_raise_on_error=False) # synch req
-        except GRPCError as e:
-            if e.status == Status.NOT_FOUND:
-                print("NOT FOUND", e.message)
-                continue
-            else:
-                raise e
-        assert HashR(txd['raw_tx']) == tx_hash  # make sure what server reutrned is sane
-        print("TxID check ok, height:",txd['merkle']['block_height'] or '??')
+
+    test_txns(c)
 
     # Testing interrupting an in-progress operation
     def got_result(x):
@@ -343,3 +342,89 @@ if __name__ == "__main__":
     c.Sleeper_CB(got_result, 1.0, timeout=3.0)
     time.sleep(2.5)
     c.stop()
+
+def test_txns(c: Client):
+    txns = [ 'a3e0b7558e67f5cadd4a3166912cbf6f930044124358ef3a9afd885ac391625d',  # <-- early txid block <200
+             'f399cb6c5bed7bb36d44f361c29dd5ecf12deba163470d8835b7ba0c4ed8aebd',  # "
+             '41b48c64cba68c21e0b7b37f589408823f112bb7cbccef4aece29df25347ffb4',  # "
+             '71cbe112176d6dc40490dde588798bd75de80133438016a0c05754d74ee1925a',  # "
+             '6a8226ad9980693ffbf41a15a1118fb73a9f68cda9c0b9951490bd03cb70d1d8',  # "
+             '1abd5b2a5ef41b5636b18216518b77b854ac26b9923ec99c272dbd7236133176',  # <-- block 237000
+             '414318b20e42ecd9816610f95ae926dc5d9a5afbaff934277b75572f35197843',  # ""
+             '2ee90107999ad508097a8f9f804e78ada865c577851791fbdba469a58d4dabc9',  # <-- block 284784
+             '4828db57fc85e46f322ef760a017e054dfef467374f1887e90ea9ea74f4b5a85',  # <-- block 391744
+             '123a33e29879f7bef161b5059741af0ce6c594b7f04c08ef171612767950206c',  # <-- later txids height >500,000 (needs full synch)
+             '1caa134689ced460a154aed0357483462dab324da66bc927fbd6a1312adebee5',  # "
+             '06d29d7fbcbceed8bcb878d7a352a65123e515a7ad532a731a735ea040c7fdf4',  # "
+             'dfdd9fce1ea51b061e60592d66ab57d14e8e6f94deb2235e719ac0d2b9d2dc7f',  # "
+             'd8d170cb03bd901495b9c0a9cd689f3ab78f11a1151af4fb3f698099ad26826a',  # <-- reversed txid (should throw error NOT FOUND)
+             'b33ff00db33f00d00000000000000000000000000000000000000000deadb33f',  # <-- invalid txid (should always throw NOT FOUND)
+            ]
+
+    #tests = { 'synch', 'asynch' }
+    #tests = { 'asynch' }
+    tests = { 'synch' }
+
+    if 'synch' in tests:
+        # First, do it all synchronously
+        for tx_hash_hex in txns:
+            tx_hash = bytes.fromhex(tx_hash_hex)
+            try:
+                txd = c.Transaction_Sync(tx_hash, trace=False, dont_raise_on_error=False) # synch req
+            except GRPCError as e:
+                if e.status == Status.NOT_FOUND:
+                    print("NOT FOUND", e.message)
+                    continue
+                else:
+                    raise e  # unknown/unexpected error status
+            except (OSError, StreamTerminatedError, ProtocolError) as e:
+                # example of what errrors grpclib can raise on comm./network error
+                print("Low-level I/O Error:", repr(e))
+                break
+            except MalformedResponse as e:
+                # exmple of potential checks we do within the coroutine and how to handle them when they fail
+                print("TxID mismatch:", *e.args[1:])
+            else:
+                print("TxID ok; bytes:", len(txd['raw_tx']), "height:", txd['merkle']['block_height'] or '??')
+
+    if 'asynch' in tests:
+        # Now, do it async. with a callback
+        q = queue.Queue()
+        for tx_hash_hex in txns:
+            tx_hash = bytes.fromhex(tx_hash_hex)
+            def callback(res, *, tx_hash=tx_hash):
+                q.put((tx_hash, res))
+            c.Transaction_CB(callback, tx_hash) # synch req
+        print("Submitted", len(txns), "asynch. callbacks ...")
+        ctr = 0
+        while ctr < len(txns):
+            try:
+                tx_hash, res = q.get(timeout=10.0)
+                tx_hash_hex = tx_hash.hex()
+                ctr += 1
+            except queue.Empty:
+                print(f"Timeout waiting for asynch. txns, aborting early, got {ctr}/{len(txns)} txns")
+                return
+            if isinstance(res, Exception):
+                e = res
+                if isinstance(e, GRPCError):
+                    if e.status == Status.NOT_FOUND:
+                        print("NOT FOUND", tx_hash_hex[:8], e.message)
+                    else:
+                        raise e  # unknown/unexpected error status
+                elif isinstance(e, (OSError, StreamTerminatedError, ProtocolError)):
+                    # example of what errrors grpclib can raise on comm./network error
+                    print("Low-level I/O Error:", tx_hash_hex[:8], repr(e))
+                elif isinstance(e, MalformedResponse):
+                    # exmple of potential checks we do within the coroutine and how to handle them when they fail
+                    print("TxID mismatch:", *e.args[1:])
+                else:
+                    raise e
+            else:
+                txd = res
+                print("TxID", tx_hash_hex[:8], "ok; bytes:", len(txd['raw_tx']), "height:", txd['merkle']['block_height'] or '??')
+        assert ctr == len(txns)
+        print(f"Got {ctr} txn replies asynchronously, yay!")
+
+if __name__ == "__main__":
+    main()
