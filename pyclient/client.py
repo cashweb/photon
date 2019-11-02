@@ -394,7 +394,7 @@ def test_txns(c: Client):
             tx_hash = bytes.fromhex(tx_hash_hex)
             def callback(res, *, tx_hash=tx_hash):
                 q.put((tx_hash, res))
-            c.Transaction_CB(callback, tx_hash) # synch req
+            c.Transaction_CB(callback, tx_hash) # asynch req
         print("Submitted", len(txns), "asynch. callbacks ...")
         ctr = 0
         while ctr < len(txns):
