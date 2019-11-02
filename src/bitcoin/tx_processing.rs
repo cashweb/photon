@@ -2,7 +2,10 @@ use bitcoin::Transaction;
 use bitcoin_hashes::Hash;
 use rocksdb::Error as RocksError;
 
-use crate::db::{model::TransactionEntry, Database};
+use crate::{
+    db::Database,
+    net::transaction::model::{transaction_response::TxMerkleInfo, TransactionResponse},
+};
 
 #[derive(Debug)]
 pub enum TxProcessingError {
@@ -25,11 +28,13 @@ pub async fn process_transactions(
         info!("processing tx {}...", hex::encode(tx_id));
 
         // Construct transaction entry
-        let data = TransactionEntry {
-            raw_tx: vec![],
-            block_height,
-            merkle: vec![],
-            pos: pos as u32,
+        let data = TransactionResponse {
+            raw_tx: vec![], // Do not cache raw transaction during sync
+            merkle: Some(TxMerkleInfo {
+                block_height,
+                merkle: vec![],
+                pos: pos as u32,
+            }),
         };
         db.put_tx(&tx_id, &data)
     })?)

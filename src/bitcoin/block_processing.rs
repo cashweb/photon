@@ -35,7 +35,11 @@ pub async fn par_process_block_stream(
     raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + Send,
     db: Database,
 ) -> Result<(), BlockProcessingError> {
+    // Split stream into chunks
     let block_stream = raw_block_stream.chunks(BLOCK_CHUNK_SIZE).map(
+        // Convert Vec<Result<_, _> into Result<Vec<_>, _>
+        // TODO: This could very well be a bottleneck here
+        // Reevaluate this later
         move |result_vector: Vec<Result<(u32, Vec<u8>), BitcoinError>>| {
             result_vector
                 .into_iter()
@@ -56,6 +60,7 @@ pub async fn par_process_block_stream(
         },
     );
 
+    // TODO: Reevaluate this later
     let processing =
         block_stream.try_for_each_concurrent(256, move |res_vec: Vec<(u32, Block)>| {
             let db_inner = db.clone();

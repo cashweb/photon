@@ -60,10 +60,15 @@ impl BitcoinClient {
     }
 
     /// Get raw transaction from Bitcoin network
-    pub async fn raw_tx(&self, tx_id: &[u8]) -> Result<Vec<u8>, BitcoinError> {
+    pub async fn raw_tx(&self, tx_id: &[u8; 32]) -> Result<Vec<u8>, BitcoinError> {
+        // Reverse tx_id before hex encoding
+        let mut tx_id_rev: [u8; 32] = [0; 32];
+        for (i, byte) in tx_id.iter().rev().enumerate() {
+            tx_id_rev[i] = *byte;
+        }
         let request = self.0.build_request(
             "getrawtransaction".to_string(),
-            vec![Value::String(hex::encode(tx_id))],
+            vec![Value::String(hex::encode(tx_id_rev))],
         );
         let raw_tx_hex = self
             .0
