@@ -1,6 +1,5 @@
 use bitcoin::{consensus::encode::Decodable, consensus::encode::Error as ConsensusError, Block};
-use futures::{channel::mpsc, prelude::*};
-use rocksdb::Error as RocksError;
+use futures::prelude::*;
 
 use super::{client::*, tx_processing::*};
 use crate::db::Database;
