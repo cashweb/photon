@@ -4,9 +4,9 @@ use serde::Deserialize;
 
 use crate::CLI_ARGS;
 
-pub const DEFAULT_BITCOIN_RPC: &str = "localhost:18332";
-pub const DEFAULT_BITCOIN_USER: &str = "";
-pub const DEFAULT_BITCOIN_PASSWORD: &str = "";
+pub const DEFAULT_BITCOIN_RPC: &str = "http://localhost:18443";
+pub const DEFAULT_BITCOIN_USER: &str = "user";
+pub const DEFAULT_BITCOIN_PASSWORD: &str = "password";
 pub const DEFAULT_BIND: &str = "[::1]:50051";
 pub const DEFAULT_BANNER: &str = "Welcome to Photon!";
 pub const DEFAULT_DONATION_ADDRESS: &str = "";
