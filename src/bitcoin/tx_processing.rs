@@ -24,7 +24,11 @@ pub async fn process_transactions(
     db: Database,
 ) -> Result<(), TxProcessingError> {
     Ok(txs.iter().enumerate().try_for_each(move |(pos, tx)| {
-        let tx_id = tx.txid().into_inner();
+        let tx_id_rev = tx.txid().into_inner();
+        let mut tx_id: [u8; 32] = [0; 32];
+        for (i, byte) in tx_id_rev.iter().rev().enumerate() {
+            tx_id[i] = *byte;
+        }
         trace!("processing tx {}...", hex::encode(tx_id));
 
         // Construct transaction entry
