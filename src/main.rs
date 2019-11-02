@@ -130,7 +130,7 @@ async fn main() -> Result<(), AppError> {
     let utility_svc = UtilityServer::new(UtilityService {});
 
     // Construct transaction service
-    let transaction_svc = TransactionServer::new(TransactionService { bitcoin_client });
+    let transaction_svc = TransactionServer::new(TransactionService { bitcoin_client, db });
 
     // Start server
     let addr = SETTINGS.bind.parse().unwrap();
