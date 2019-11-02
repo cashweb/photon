@@ -6,6 +6,7 @@ edition = "2018"
 description = "Photon is a high performance wallet backend."
 
 [dependencies]
+async-stream = "*"
 bitcoin = "*"
 bitcoin_hashes = "*"
 bytes = "*"

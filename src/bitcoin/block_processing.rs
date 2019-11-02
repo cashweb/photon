@@ -6,21 +6,6 @@ use crate::db::Database;
 
 const BLOCK_PROCESSING_CONCURRENCY: usize = 8;
 
-/// Create a stream of raw blocks between heights [start, end)
-pub fn raw_block_stream(
-    start: u32,
-    end: u32,
-    client: &'static BitcoinClient,
-) -> impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + Send {
-    stream::iter(start..end)
-        .map(|height| Ok(height))
-        .and_then(move |height| {
-            client
-                .block_from_height(height)
-                .map(move |raw_block_res| raw_block_res.map(|raw_block| (height, raw_block)))
-        })
-}
-
 pub enum BlockProcessingError {
     Bitcoin(BitcoinError),
     BlockDecoding(ConsensusError),
@@ -46,7 +31,7 @@ impl From<ConsensusError> for BlockProcessingError {
 }
 
 pub async fn process_block_stream(
-    raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + Send + 'static,
+    raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + Send,
     db: Database,
 ) -> Result<(), BlockProcessingError> {
     let block_stream = raw_block_stream.map(|res| {

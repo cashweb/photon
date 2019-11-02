@@ -10,13 +10,17 @@ pub mod state;
 use std::sync::Arc;
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
+use futures::prelude::*;
 use tonic::transport::Server;
 
 use crate::{
-    bitcoin::client::BitcoinClient,
+    bitcoin::{
+        block_processing::process_block_stream,
+        client::{BitcoinClient, BitcoinError},
+    },
     net::{router::Router, transaction, utility},
 };
-
+use db::Database;
 use state::StateMananger;
 
 lazy_static! {
@@ -63,6 +67,10 @@ lazy_static! {
     static ref STATE_MANAGER: StateMananger = StateMananger::default();
 }
 
+enum SyncError {
+    Chaintip(BitcoinError),
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = SETTINGS.bind.parse().unwrap();
@@ -74,6 +82,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         SETTINGS.bitcoin_user.clone(),
         SETTINGS.bitcoin_password.clone(),
     );
+
+    // Init Database
+    let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
+
+    // Start syncing
+    let bitcoin_client_inner = bitcoin_client.clone();
+    let sync = async move {
+        // Get current chaintip
+        let chaintip = bitcoin_client_inner
+            .chaintip()
+            .await
+            .map_err(SyncError::Chaintip)?;
+
+        // Get oldest valid block
+        // TODO: Scan database for this
+        let earliest_valid_height = 0;
+
+        let raw_block_stream =
+            bitcoin_client_inner.raw_block_stream(earliest_valid_height, chaintip.height);
+
+        let process_blocks = process_block_stream(raw_block_stream, db);
+
+        process_blocks.into_future().await;
+        Ok::<(), SyncError>(())
+    };
 
     // Construct utility service
     let utility_service = utility::UtilityService {};

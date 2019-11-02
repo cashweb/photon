@@ -1,7 +1,9 @@
-use std::sync::Arc;
-
+use async_stream::stream;
+use futures::pin_mut;
 use serde::Deserialize;
 use serde_json::Value;
+use std::sync::Arc;
+use tokio::prelude::*;
 
 use crate::net::jsonrpc_client::*;
 
@@ -30,9 +32,10 @@ pub struct ChainTipStatus {
     status: String,
 }
 
+#[derive(Clone)]
 pub struct ChainTip {
-    height: u32,
-    hash: Vec<u8>,
+    pub height: u32,
+    pub hash: Vec<u8>,
 }
 
 #[derive(Clone)]
@@ -139,6 +142,21 @@ impl BitcoinClient {
         Ok(ChainTip {
             height: tip_status.height,
             hash: hex::decode(&tip_status.hash)?,
+        })
+    }
+
+    /// Create a stream of raw blocks between heights [start, end)
+    pub fn raw_block_stream<'a>(
+        &'a self,
+        start: u32,
+        end: u32,
+    ) -> impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + 'a {
+        Box::pin(stream! {
+            for height in (start..end) {
+                yield self
+                    .block_from_height(height)
+                    .map(move |raw_block_res| raw_block_res.map(move |raw_block| (height, raw_block))).await;
+            }
         })
     }
 }
