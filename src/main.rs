@@ -83,6 +83,26 @@ impl From<BlockProcessingError> for SyncingError {
     }
 }
 
+async fn synchronize(bitcoin_client: BitcoinClient, db: Database) -> Result<(), SyncingError> {
+    // Get current chain height
+    let block_count = bitcoin_client
+        .block_count()
+        .map_err(SyncingError::Chaintip)
+        .await?;
+
+    info!("current chain height: {}", block_count);
+
+    // Get oldest valid block
+    // TODO: Scan database for this
+    let earliest_valid_height: u32 = 0;
+
+    let raw_block_stream = bitcoin_client.raw_block_stream(earliest_valid_height, block_count);
+
+    Ok(par_process_block_stream(raw_block_stream, db)
+        .map_err(SyncingError::BlockProcessing)
+        .await?)
+}
+
 #[derive(Debug)]
 enum AppError {
     Syncing(SyncingError),
@@ -104,30 +124,7 @@ async fn main() -> Result<(), AppError> {
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
 
-    // Construct sync future
-    let bitcoin_client_inner = bitcoin_client.clone();
-    let sync = async move {
-        info!("starting synchronization...");
-
-        // Get current chain height
-        let block_count = bitcoin_client_inner
-            .block_count()
-            .await
-            .map_err(SyncingError::Chaintip)?;
-
-        info!("current chain height: {}", block_count);
-
-        // Get oldest valid block
-        // TODO: Scan database for this
-        let earliest_valid_height = 0;
-
-        let raw_block_stream =
-            bitcoin_client_inner.raw_block_stream(earliest_valid_height, block_count);
-
-        let process_blocks = par_process_block_stream(raw_block_stream, db);
-
-        Ok(process_blocks.into_future().await?)
-    };
+    let sync = synchronize(bitcoin_client.clone(), db.clone());
 
     // Construct utility service
     let utility_svc = UtilityServer::new(UtilityService {});
@@ -141,10 +138,13 @@ async fn main() -> Result<(), AppError> {
     let server = Server::builder()
         .add_service(utility_svc)
         .add_service(transaction_svc)
-        .serve(addr)
-        .map_err(AppError::ServerError);
+        .serve(addr);
 
-    try_join(server, sync.map_err(AppError::Syncing)).await?;
+    try_join(
+        server.map_err(AppError::ServerError),
+        sync.map_err(AppError::Syncing),
+    )
+    .await?;
 
     Ok(())
 }
