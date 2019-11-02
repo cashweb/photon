@@ -37,14 +37,10 @@ impl Database {
         self.0.put(&tx_id[..TX_ID_PREFIX_LEN], raw)
     }
 
-    pub fn put_tx_raw(&self, tx_id: &[u8; 32], raw: &[u8]) -> Result<(), Error> {
-        self.0.put(&tx_id[..TX_ID_PREFIX_LEN], raw)
-    }
-
     pub fn get_tx(&self, tx_id: &[u8; 32]) -> Result<CachedOption<TransactionResponse>, Error> {
         self.0.get(&tx_id[..TX_ID_PREFIX_LEN]).map(|opt| match opt {
             Some(some) => {
-                // TODO: Use wrapping protobuf
+                // TODO: Use wrapping metadata protobuf
                 let tx_entry = TransactionResponse::decode(some.as_ref()).unwrap();
 
                 if tx_entry.raw_tx.is_empty() {
