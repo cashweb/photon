@@ -1,5 +1,4 @@
 use config::{Config, ConfigError, Environment, File};
-use dirs::home_dir;
 use serde::Deserialize;
 
 use crate::CLI_ARGS;

@@ -18,6 +18,8 @@ futures-preview = "=0.3.0-alpha.19"
 hex = "*"
 http = "*"
 lazy_static = "*"
+log = "*"
+env_logger = "*"
 rocksdb = "*"
 reqwest = { version = "0.10.0-alpha.1", features = ["json"] }
 serde = { version = "*", features = ["derive"] }

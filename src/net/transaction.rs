@@ -35,4 +35,16 @@ impl model::server::Transaction for TransactionService {
         let reply = model::BroadcastResponse { tx_hash };
         Ok(Response::new(reply))
     }
+
+    // async fn transaction(
+    //     &self,
+    //     request: Request<model::TransactionRequest>,
+    // ) -> Result<Response<model::TransactionResponse>, Status> {
+    //     let request_inner = request.intoto_inner();
+    //     if request_inner.merkle {
+    //         // TODO: Grab merkle branch
+    //         unreachable!()
+    //     } else {
+    //     }
+    // }
 }

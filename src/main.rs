@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate log;
 
 pub mod bitcoin;
 pub mod db;
@@ -74,8 +76,8 @@ enum SyncError {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = SETTINGS.bind.parse().unwrap();
-    println!("starting server @ {}", addr);
+    // Init logging
+    env_logger::init();
 
     // Init Bitcoin client
     let bitcoin_client = BitcoinClient::new(
@@ -90,23 +92,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start syncing
     let bitcoin_client_inner = bitcoin_client.clone();
     let sync = async move {
-        // Get current chaintip
-        let chaintip = bitcoin_client_inner
-            .chaintip()
+        info!("starting synchronization...");
+
+        // Get current chain height
+        let block_count = bitcoin_client_inner
+            .block_count()
             .await
             .map_err(SyncError::Chaintip)?;
+
+        info!("current chain height: {}", block_count);
 
         // Get oldest valid block
         // TODO: Scan database for this
         let earliest_valid_height = 0;
 
         let raw_block_stream =
-            bitcoin_client_inner.raw_block_stream(earliest_valid_height, chaintip.height);
+            bitcoin_client_inner.raw_block_stream(earliest_valid_height, block_count);
 
         let process_blocks = process_block_stream(raw_block_stream, db);
 
         process_blocks.into_future().await;
         Ok::<(), SyncError>(())
+    };
+
+    if let Err(err) = sync.await {
+        println!("{:?}", err);
     };
 
     // Construct utility service
@@ -121,6 +131,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         utility_service: Arc::new(utility_service),
         transaction_service: Arc::new(transaction_service),
     };
+
+    // Start server
+    let addr = SETTINGS.bind.parse().unwrap();
+    info!("starting server @ {}", addr);
     Server::builder().serve(addr, router).await?;
 
     Ok(())

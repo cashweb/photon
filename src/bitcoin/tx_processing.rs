@@ -1,8 +1,5 @@
-use std::future::Future;
-
 use bitcoin::Transaction;
 use bitcoin_hashes::Hash;
-use futures::channel::mpsc;
 use rocksdb::Error as RocksError;
 
 use crate::db::{model::TransactionEntry, Database};
@@ -25,6 +22,7 @@ pub async fn process_transactions(
 ) -> Result<(), TxProcessingError> {
     Ok(txs.iter().enumerate().try_for_each(move |(pos, tx)| {
         let tx_id = tx.txid().into_inner();
+        info!("processing tx {}...", hex::encode(tx_id));
 
         // Construct transaction entry
         let data = TransactionEntry {
