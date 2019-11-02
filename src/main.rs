@@ -1,19 +1,30 @@
 #[macro_use]
 extern crate lazy_static;
-
-use std::sync::Arc;
-
-use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use tonic::transport::Server;
-
-use crate::{
-    bitcoin::client::BitcoinClient,
-    net::{router::Router, transaction, utility},
-};
+#[macro_use]
+extern crate log;
 
 pub mod bitcoin;
+pub mod db;
 pub mod net;
 pub mod settings;
+pub mod state;
+
+use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
+use futures::{future::try_join, prelude::*};
+use tonic::transport::{Error as TonicError, Server};
+
+use crate::{
+    bitcoin::{
+        block_processing::*,
+        client::{BitcoinClient, BitcoinError},
+    },
+    net::{
+        transaction::{model::server::TransactionServer, TransactionService},
+        utility::{model::server::UtilityServer, UtilityService},
+    },
+};
+use db::Database;
+use state::StateMananger;
 
 lazy_static! {
     // Declare APP and get matches
@@ -23,7 +34,8 @@ lazy_static! {
         .about(crate_description!())
         .arg(Arg::with_name("bitcoin-rpc")
             .long("bitcoin-rpc")
-            .help("Sets the Bitcoin RPC address"))
+            .help("Sets the Bitcoin RPC address")
+            .takes_value(true))
         .arg(Arg::with_name("bitcoin-user")
             .long("bitcoin-user")
             .help("Sets the Bitcoin RPC user")
@@ -31,6 +43,11 @@ lazy_static! {
         .arg(Arg::with_name("bitcoin-password")
             .long("bitcoin-password")
             .help("Sets the Bitcoin RPC password")
+            .takes_value(true))
+        .arg(Arg::with_name("db-path")
+            .short("d")
+            .long("db-path")
+            .help("Sets the database path")
             .takes_value(true))
         .arg(Arg::with_name("bind")
             .long("bind")
@@ -49,12 +66,33 @@ lazy_static! {
 
     // Fetch settings
     static ref SETTINGS: settings::Settings = settings::Settings::fetch().unwrap();
+
+    // Init state manager
+    static ref STATE_MANAGER: StateMananger = StateMananger::default();
+}
+
+#[derive(Debug)]
+enum SyncingError {
+    Chaintip(BitcoinError),
+    BlockProcessing(BlockProcessingError),
+}
+
+impl From<BlockProcessingError> for SyncingError {
+    fn from(err: BlockProcessingError) -> Self {
+        SyncingError::BlockProcessing(err)
+    }
+}
+
+#[derive(Debug)]
+enum AppError {
+    Syncing(SyncingError),
+    ServerError(TonicError),
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = SETTINGS.bind.parse().unwrap();
-    println!("starting server @ {}", addr);
+async fn main() -> Result<(), AppError> {
+    // Init logging
+    env_logger::init();
 
     // Init Bitcoin client
     let bitcoin_client = BitcoinClient::new(
@@ -63,19 +101,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         SETTINGS.bitcoin_password.clone(),
     );
 
+    // Init Database
+    let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
+
+    // Construct sync future
+    let bitcoin_client_inner = bitcoin_client.clone();
+    let sync = async move {
+        info!("starting synchronization...");
+
+        // Get current chain height
+        let block_count = bitcoin_client_inner
+            .block_count()
+            .await
+            .map_err(SyncingError::Chaintip)?;
+
+        info!("current chain height: {}", block_count);
+
+        // Get oldest valid block
+        // TODO: Scan database for this
+        let earliest_valid_height = 0;
+
+        let raw_block_stream =
+            bitcoin_client_inner.raw_block_stream(earliest_valid_height, block_count);
+
+        let process_blocks = par_process_block_stream(raw_block_stream, db);
+
+        Ok(process_blocks.into_future().await?)
+    };
+
     // Construct utility service
-    let utility_service = utility::UtilityService {};
+    let utility_svc = UtilityServer::new(UtilityService {});
 
     // Construct transaction service
-    let transaction_service = transaction::TransactionService { bitcoin_client };
+    let transaction_svc = TransactionServer::new(TransactionService { bitcoin_client });
 
-    // Aggregate services using router
-    // TODO: Replace when routing is natively supported
-    let router = Router {
-        utility_service: Arc::new(utility_service),
-        transaction_service: Arc::new(transaction_service),
-    };
-    Server::builder().serve(addr, router).await?;
+    // Start server
+    let addr = SETTINGS.bind.parse().unwrap();
+    info!("starting server @ {}", addr);
+    let server = Server::builder()
+        .add_service(utility_svc)
+        .add_service(transaction_svc)
+        .serve(addr)
+        .map_err(AppError::ServerError);
+
+    try_join(server, sync.map_err(AppError::Syncing)).await?;
 
     Ok(())
 }

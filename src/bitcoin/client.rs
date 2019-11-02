@@ -1,10 +1,11 @@
-use std::sync::Arc;
-
+use futures::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
+use std::sync::Arc;
 
 use crate::net::jsonrpc_client::*;
 
+#[derive(Debug)]
 pub enum BitcoinError {
     Client(ClientError),
     Decoding(hex::FromHexError),
@@ -30,9 +31,10 @@ pub struct ChainTipStatus {
     status: String,
 }
 
+#[derive(Clone)]
 pub struct ChainTip {
-    height: u32,
-    hash: Vec<u8>,
+    pub height: u32,
+    pub hash: Vec<u8>,
 }
 
 #[derive(Clone)]
@@ -73,6 +75,7 @@ impl BitcoinClient {
 
     /// Get block hash from height
     pub async fn block_hash(&self, height: u32) -> Result<Vec<u8>, BitcoinError> {
+        info!("fetching block from height {}...", height);
         let request = self.0.build_request(
             "getblockhash".to_string(),
             vec![Value::Number(height.into())],
@@ -87,6 +90,7 @@ impl BitcoinClient {
 
     /// Get block from block hash
     pub async fn block(&self, block_hash: &[u8]) -> Result<Vec<u8>, BitcoinError> {
+        info!("fetching block with hash {}...", hex::encode(block_hash));
         let request = self.0.build_request(
             "getblock".to_string(),
             vec![Value::String(hex::encode(block_hash))],
@@ -101,6 +105,7 @@ impl BitcoinClient {
 
     /// Get block from height
     pub async fn block_from_height(&self, height: u32) -> Result<Vec<u8>, BitcoinError> {
+        info!("fetching block hash from height {}...", height);
         // Get block hash
         let request = self.0.build_request(
             "getblockhash".to_string(),
@@ -113,9 +118,11 @@ impl BitcoinClient {
             .into_result::<String>()?;
 
         // Get block
-        let request = self
-            .0
-            .build_request("getblock".to_string(), vec![Value::String(block_hash_hex)]);
+        info!("fetching block with hash {}...", block_hash_hex);
+        let request = self.0.build_request(
+            "getblock".to_string(),
+            vec![Value::String(block_hash_hex), Value::Bool(false)],
+        );
         let block_hex = self
             .0
             .send_request(&request)
@@ -124,8 +131,9 @@ impl BitcoinClient {
         Ok(hex::decode(block_hex)?)
     }
 
-    /// Get current chaintip
-    pub async fn chaintip(&self) -> Result<ChainTip, BitcoinError> {
+    /// Get current chain tip
+    pub async fn chain_tip(&self) -> Result<ChainTip, BitcoinError> {
+        info!("fetching current chain tip...");
         let request = self.0.build_request("getchaintips".to_string(), vec![]);
         let chain_tips = self
             .0
@@ -140,5 +148,25 @@ impl BitcoinClient {
             height: tip_status.height,
             hash: hex::decode(&tip_status.hash)?,
         })
+    }
+
+    /// Get block count
+    pub async fn block_count(&self) -> Result<u32, BitcoinError> {
+        info!("fetching block count...");
+        let request = self.0.build_request("getblockcount".to_string(), vec![]);
+        Ok(self.0.send_request(&request).await?.into_result::<u32>()?)
+    }
+
+    /// Create a stream of raw blocks between heights [start, end)
+    pub fn raw_block_stream<'a>(
+        &'a self,
+        start: u32,
+        end: u32,
+    ) -> impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + 'a {
+        let stream = stream::iter(start..end).then(move |height| {
+            self.block_from_height(height)
+                .map(move |raw_block_res| raw_block_res.map(move |raw_block| (height, raw_block)))
+        });
+        Box::pin(stream)
     }
 }
