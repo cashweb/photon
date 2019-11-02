@@ -6,6 +6,7 @@ pub mod model {
     tonic::include_proto!("transaction");
 }
 
+#[derive(Clone)]
 pub struct TransactionService {
     pub bitcoin_client: BitcoinClient,
 }

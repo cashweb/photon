@@ -1,8 +1,7 @@
-use async_stream::stream;
+use futures::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::prelude::*;
 
 use crate::net::jsonrpc_client::*;
 
@@ -164,12 +163,10 @@ impl BitcoinClient {
         start: u32,
         end: u32,
     ) -> impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + 'a {
-        Box::pin(stream! {
-            for height in (start..end) {
-                yield self
-                    .block_from_height(height)
-                    .map(move |raw_block_res| raw_block_res.map(move |raw_block| (height, raw_block))).await;
-            }
-        })
+        let stream = stream::iter(start..end).then(move |height| {
+            self.block_from_height(height)
+                .map(move |raw_block_res| raw_block_res.map(move |raw_block| (height, raw_block)))
+        });
+        Box::pin(stream)
     }
 }

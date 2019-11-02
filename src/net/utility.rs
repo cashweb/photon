@@ -9,6 +9,7 @@ pub mod model {
 
 const AGENT: &str = "";
 
+#[derive(Clone)]
 pub struct UtilityService {}
 
 #[tonic::async_trait]

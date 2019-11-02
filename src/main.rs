@@ -9,18 +9,19 @@ pub mod net;
 pub mod settings;
 pub mod state;
 
-use std::sync::Arc;
-
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::prelude::*;
-use tonic::transport::Server;
+use futures::{future::try_join, prelude::*};
+use tonic::transport::{Error as TonicError, Server};
 
 use crate::{
     bitcoin::{
-        block_processing::process_block_stream,
+        block_processing::*,
         client::{BitcoinClient, BitcoinError},
     },
-    net::{router::Router, transaction, utility},
+    net::{
+        transaction::{model::server::TransactionServer, TransactionService},
+        utility::{model::server::UtilityServer, UtilityService},
+    },
 };
 use db::Database;
 use state::StateMananger;
@@ -33,7 +34,8 @@ lazy_static! {
         .about(crate_description!())
         .arg(Arg::with_name("bitcoin-rpc")
             .long("bitcoin-rpc")
-            .help("Sets the Bitcoin RPC address"))
+            .help("Sets the Bitcoin RPC address")
+            .takes_value(true))
         .arg(Arg::with_name("bitcoin-user")
             .long("bitcoin-user")
             .help("Sets the Bitcoin RPC user")
@@ -70,12 +72,25 @@ lazy_static! {
 }
 
 #[derive(Debug)]
-enum SyncError {
+enum SyncingError {
     Chaintip(BitcoinError),
+    BlockProcessing(BlockProcessingError),
+}
+
+impl From<BlockProcessingError> for SyncingError {
+    fn from(err: BlockProcessingError) -> Self {
+        SyncingError::BlockProcessing(err)
+    }
+}
+
+#[derive(Debug)]
+enum AppError {
+    Syncing(SyncingError),
+    ServerError(TonicError),
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), AppError> {
     // Init logging
     env_logger::init();
 
@@ -89,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
 
-    // Start syncing
+    // Construct sync future
     let bitcoin_client_inner = bitcoin_client.clone();
     let sync = async move {
         info!("starting synchronization...");
@@ -98,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let block_count = bitcoin_client_inner
             .block_count()
             .await
-            .map_err(SyncError::Chaintip)?;
+            .map_err(SyncingError::Chaintip)?;
 
         info!("current chain height: {}", block_count);
 
@@ -109,33 +124,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let raw_block_stream =
             bitcoin_client_inner.raw_block_stream(earliest_valid_height, block_count);
 
-        let process_blocks = process_block_stream(raw_block_stream, db);
+        let process_blocks = par_process_block_stream(raw_block_stream, db);
 
-        process_blocks.into_future().await;
-        Ok::<(), SyncError>(())
-    };
-
-    if let Err(err) = sync.await {
-        println!("{:?}", err);
+        Ok(process_blocks.into_future().await?)
     };
 
     // Construct utility service
-    let utility_service = utility::UtilityService {};
+    let utility_svc = UtilityServer::new(UtilityService {});
 
     // Construct transaction service
-    let transaction_service = transaction::TransactionService { bitcoin_client };
-
-    // Aggregate services using router
-    // TODO: Replace when routing is natively supported
-    let router = Router {
-        utility_service: Arc::new(utility_service),
-        transaction_service: Arc::new(transaction_service),
-    };
+    let transaction_svc = TransactionServer::new(TransactionService { bitcoin_client });
 
     // Start server
     let addr = SETTINGS.bind.parse().unwrap();
     info!("starting server @ {}", addr);
-    Server::builder().serve(addr, router).await?;
+    let server = Server::builder()
+        .add_service(utility_svc)
+        .add_service(transaction_svc)
+        .serve(addr)
+        .map_err(AppError::ServerError);
+
+    try_join(server, sync.map_err(AppError::Syncing)).await?;
 
     Ok(())
 }
