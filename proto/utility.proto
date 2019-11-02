@@ -14,20 +14,19 @@ message DonationAddressResponse {
   string address = 1;
 }
 
-message VersionResponse {
-  // Any string name of the server's user agent. For stats purposes
+message VersionRequest {
+  // Any string name of the client's user agent. For stats purposes
   // only; may be empty, does not (usually) affect protocol behavior or
-  // anything else. E.g.: "BobsServerImpl", etc.
+  // anything else. E.g.: "Electron-Cash", etc.
   string agent = 1;
   // Version number X.Y.Z form (or X.Y)
   string version = 2;
 }
 
-
-message VersionRequest {
-  // Any string name of the client's user agent. For stats purposes
+message VersionResponse {
+  // Any string name of the server's user agent. For stats purposes
   // only; may be empty, does not (usually) affect protocol behavior or
-  // anything else. E.g.: "Electron-Cash", etc.
+  // anything else. E.g.: "BobsServerImpl", etc.
   string agent = 1;
   // Version number X.Y.Z form (or X.Y)
   string version = 2;
