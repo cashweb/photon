@@ -18,6 +18,8 @@ import time
 from typing import Any, Callable, Tuple, Union
 
 from grpclib.client import Channel
+from grpclib.exceptions import GRPCError
+from grpclib.const import Status
 
 import google.protobuf.empty_pb2
 Empty = google.protobuf.empty_pb2.Empty()
@@ -57,9 +59,10 @@ def HashR(x: Union[bytes, str, bytearray]) -> bytes:
 class Client:
     DEFAULT_HOST = '127.0.0.1'
     DEFAULT_PORT = 50051  # fixme
+    trace = False
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, ssl: bool = False,
-                 *, logger: Callable = None, dont_raise_on_error=False):
+                 *, logger: Callable = None, dont_raise_on_error=False, trace=None):
         self.logger = logger or (lambda *args, **kwargs: None)
         self.host_port = (host, port)
         self.ssl = ssl
@@ -68,6 +71,7 @@ class Client:
         self.transaction: transaction_grpc.TransactionStub = None
         self.loop = None
         self.dont_raise_on_error = dont_raise_on_error
+        if trace is not None: self.trace = trace  # specified instance-specific trace setting (otherwise we inherit class-level)
 
     def start(self):
         if (self.thr and self.thr.is_alive()) or (self.loop and self.loop.is_running()):
@@ -131,42 +135,42 @@ class Client:
     #
     async def Version(self, useragent: str, version: str) -> Tuple[str, str]:
         pb = utility_pb2
-        self.logger(f"--> Sending utility.Version...")
+        if self.trace: self.logger(f"--> Sending utility.Version...")
         reply: pb.VersionResponse = await self.utility.Version(pb.VersionRequest(agent=useragent, version=version))
-        self.logger(f"<-- Got utility.Version:", reply.agent, reply.version)
+        if self.trace: self.logger(f"<-- Got utility.Version:", reply.agent, reply.version)
         return (reply.agent, reply.version)
 
     async def Banner(self) -> str:
         pb = utility_pb2
-        self.logger(f"--> Sending utility.Banner...")
+        if self.trace: self.logger(f"--> Sending utility.Banner...")
         reply: pb.BannerResponse = await self.utility.Banner(Empty)
-        self.logger(f"<-- Got utility.Banner:", reply.banner[:80]+("..." if len(reply.banner) > 80 else ""))
+        if self.trace: self.logger(f"<-- Got utility.Banner:", reply.banner[:80]+("..." if len(reply.banner) > 80 else ""))
         return reply.banner
 
     async def Ping(self) -> float:
         pb = utility_pb2
-        self.logger(f"--> Sending utility.Ping...")
+        if self.trace: self.logger(f"--> Sending utility.Ping...")
         t0 = time.time()
         await self.utility.Ping(Empty)
         elapsed = time.time()-t0
-        self.logger(f"<-- Got utility.Ping reply in {1e3*elapsed:1.3f} msec")
+        if self.trace: self.logger(f"<-- Got utility.Ping reply in {1e3*elapsed:1.3f} msec")
         return elapsed
 
     async def DonationAddress(self) -> str:
         pb = utility_pb2
-        self.logger(f"--> Sending utility.DonationAddress ...")
+        if self.trace: self.logger(f"--> Sending utility.DonationAddress ...")
         reply: pb.DonationAddressResponse = await self.utility.DonationAddress(Empty)
         addr = reply.address or '' # is this needed?
-        self.logger(f"<-- Got utility.DonationAddress:", addr[:80]+("..." if len(addr) > 80 else ""))
+        if self.trace: self.logger(f"<-- Got utility.DonationAddress:", addr[:80]+("..." if len(addr) > 80 else ""))
         return reply.address
 
     async def Transaction(self, tx_hash: bytes) -> dict:
         pb = transaction_pb2
-        self.logger(f"--> Sending transaction.Transaction('{tx_hash[:4].hex()}..{tx_hash[-4:].hex()}') ...")
+        if self.trace: self.logger(f"--> Sending transaction.Transaction('{tx_hash[:4].hex()}..{tx_hash[-4:].hex()}') ...")
         request = pb.TransactionRequest(tx_hash=tx_hash)
         reply: pb.TransactionResponse = await self.transaction.Transaction(request)
         raw = reply.raw_tx or b''  # is this needed?
-        self.logger(f"<-- Got transaction.Transaction: {len(raw)} bytes ...")
+        if self.trace: self.logger(f"<-- Got transaction.Transaction: {len(raw)} bytes ...")
         merkle_dict = dict()
         if reply.merkle:
             merkle_dict['block_height'] = reply.merkle.block_height
@@ -183,7 +187,7 @@ class Client:
     #
     # PRIVATE ---
     #
-    def _do_sync(self, coro: asyncio.Future, *, timeout=10.0, dont_raise_on_error=None, trace=True) -> Any:
+    def _do_sync(self, coro: asyncio.Future, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> Any:
         ''' Helper: schedules a coroutine to run in this class's thread, on its event loop. Thread safe,
         intended to be called from outside code not running on this class's thread.  Will return the result
         syncrhonously or raise an exception on timeout or if the coroutine raised. Optionally
@@ -191,6 +195,7 @@ class Client:
         feature). '''
         future = asyncio.run_coroutine_threadsafe(coro, self.loop)
         dont_raise_on_error = self.dont_raise_on_error if dont_raise_on_error is None else dont_raise_on_error
+        trace = trace if trace is not None else self.trace
         try:
             result = future.result(timeout=timeout)
         except asyncio.TimeoutError as e:
@@ -241,19 +246,19 @@ class Client:
     #   May also raise whatever exception the corresponding async functions above raised (such as ConnectionRefusedError, etc).
     #
     # UTILITY service (Synchronous/Blocking-style methods)
-    def Version_Sync(self, useragent: str, version: str, *, timeout=10.0, dont_raise_on_error=None, trace=True) -> Tuple[str, str]:
+    def Version_Sync(self, useragent: str, version: str, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> Tuple[str, str]:
         return self._do_sync(self.Version(useragent, version), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
-    def Banner_Sync(self, *, timeout=10.0, dont_raise_on_error=None, trace=True) -> str:
+    def Banner_Sync(self, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> str:
         return self._do_sync(self.Banner(), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
-    def Ping_Sync(self, *, timeout=10.0, dont_raise_on_error=None, trace=True) -> float:
+    def Ping_Sync(self, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> float:
         return self._do_sync(self.Ping(), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
-    def DonationAddress_Sync(self, *, timeout=10.0, dont_raise_on_error=None, trace=True) -> str:
+    def DonationAddress_Sync(self, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> str:
         return self._do_sync(self.DonationAddress(), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
     # TRANSACTION service (Synchronous/Blocking-style methods)
-    def Transaction_Sync(self, tx_hash: bytes, *, timeout=10.0, dont_raise_on_error=None, trace=False) -> dict:
+    def Transaction_Sync(self, tx_hash: bytes, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> dict:
         return self._do_sync(self.Transaction(tx_hash), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
     # testing...
-    def Sleeper_Sync(self, delay=5.0, *, timeout=10.0, trace=True) -> int:
+    def Sleeper_Sync(self, delay=5.0, *, timeout=10.0, trace=None) -> int:
         return self._do_sync(self.Sleeper(delay), timeout=timeout, trace=trace)
 
     # PUBLIC -- Callback-style RPC methods
@@ -294,7 +299,7 @@ if __name__ == "__main__":
     else:
         print(f"Command-line host:port specified: \"{host}:{port}\"")
 
-    c = Client(host, port, logger=print, dont_raise_on_error=True)
+    c = Client(host, port, logger=print, dont_raise_on_error=True, trace=True)
     print(repr(threading.current_thread()))
     c.start()
     c.Version_Sync("Photon PyClient", "0.1.0")
@@ -318,10 +323,14 @@ if __name__ == "__main__":
             ]
     for tx_hash_hex in txns:
         tx_hash = bytes.fromhex(tx_hash_hex)
-        txd = c.Transaction_Sync(tx_hash) # synch req
-        if txd is None:
-            print("NOT FOUND")
-            continue
+        try:
+            txd = c.Transaction_Sync(tx_hash, trace=False, dont_raise_on_error=False) # synch req
+        except GRPCError as e:
+            if e.status == Status.NOT_FOUND:
+                print("NOT FOUND", e.message)
+                continue
+            else:
+                raise e
         assert HashR(txd['raw_tx']) == tx_hash  # make sure what server reutrned is sane
         print("TxID check ok, height:",txd['merkle']['block_height'] or '??')
 
