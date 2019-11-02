@@ -22,13 +22,9 @@ impl Database {
         DB::open(&opts, &path).map(Arc::new).map(Database)
     }
 
-    pub fn put_tx(
-        &self,
-        tx_id: &[u8; TX_ID_PREFIX_LEN],
-        data: &TransactionEntry,
-    ) -> Result<(), Error> {
+    pub fn put_tx(&self, tx_id: &[u8; 32], data: &TransactionEntry) -> Result<(), Error> {
         let mut raw = Vec::with_capacity(data.encoded_len());
         data.encode(&mut raw).unwrap();
-        self.0.put(&tx_id, raw)
+        self.0.put(&tx_id[..TX_ID_PREFIX_LEN], raw)
     }
 }
