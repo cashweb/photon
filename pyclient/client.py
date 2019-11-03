@@ -311,17 +311,52 @@ class Client:
         self._do_cb(self.Sleeper(delay), callback, timeout=timeout)
 
 def main():
+    import argparse
+
     host = Client.DEFAULT_HOST
     port = Client.DEFAULT_PORT
+
+    parser = argparse.ArgumentParser(prog="client.py", description="Test Photon Python Client")
+    parser.add_argument('host', nargs='?', help='host:port to connect to')
+    parser.add_argument('-t', nargs=1, metavar='file', help="Transaction file to read for the transaction.Transaction test")
+
+    args = parser.parse_args()
+
     try:
-        _host, _port = sys.argv[-1].rsplit(':', 1)
+        _host, _port = args.host.rsplit(':', 1)
         _port = int(_port)
         host, port = _host, _port
         del _host, _port
     except:
+        if args.host:
+            print("Failed to parse host:port")
+            parser.print_help()
+            sys.exit(1)
         print(f"Note: Will connect to default {host}:{port}, specify a HOST:PORT on the command-line to override.")
     else:
         print(f"Command-line host:port specified: \"{host}:{port}\"")
+
+    txns = []
+    if args.t:
+        fn = args.t[0]
+        print(f"Reading transaction id's from '{fn}' ...")
+        line_ctr = 0
+        try:
+            with open(fn, "rt") as f:
+                for line in f:
+                    txid = bytes.fromhex(line.strip()).hex()
+                    line_ctr += 1
+                    assert(len(txid) == 64), "TXID must be 32 bytes"
+                    txns.append(txid)
+        except OSError as e:
+            print(f"File error on '{fn}': {e}")
+            sys.exit(1)
+        except Exception as e:
+            print("Error parsing txid on line:", line_ctr, ",", e)
+            sys.exit(1)
+        else:
+            print(f"Read {len(txns)} txid's from file")
+
 
     c = Client(host, port, logger=print, dont_raise_on_error=True, trace=True)
     print(repr(threading.current_thread()))
@@ -331,7 +366,7 @@ def main():
     c.Ping_Sync()
     c.DonationAddress_Sync()
 
-    test_txns(c)
+    test_txns(c, txns=txns)
 
     # Testing interrupting an in-progress operation
     def got_result(x):
@@ -343,8 +378,9 @@ def main():
     time.sleep(2.5)
     c.stop()
 
-def test_txns(c: Client):
-    txns = [ 'a3e0b7558e67f5cadd4a3166912cbf6f930044124358ef3a9afd885ac391625d',  # <-- early txid block <200
+def test_txns(c: Client, *, txns=None):
+    txns = txns or (
+           [ 'a3e0b7558e67f5cadd4a3166912cbf6f930044124358ef3a9afd885ac391625d',  # <-- early txid block <200
              'f399cb6c5bed7bb36d44f361c29dd5ecf12deba163470d8835b7ba0c4ed8aebd',  # "
              '41b48c64cba68c21e0b7b37f589408823f112bb7cbccef4aece29df25347ffb4',  # "
              '71cbe112176d6dc40490dde588798bd75de80133438016a0c05754d74ee1925a',  # "
@@ -360,19 +396,29 @@ def test_txns(c: Client):
              'd8d170cb03bd901495b9c0a9cd689f3ab78f11a1151af4fb3f698099ad26826a',  # <-- reversed txid (should throw error NOT FOUND)
              'b33ff00db33f00d00000000000000000000000000000000000000000deadb33f',  # <-- invalid txid (should always throw NOT FOUND)
             ]
+    )
+
+    limit = 10000  # play with this to control how much you spam the server
+    if limit and len(txns) > limit:
+        txns = txns[:limit]
 
     #tests = { 'synch', 'asynch' }
-    #tests = { 'asynch' }
-    tests = { 'synch' }
+    tests = { 'asynch' }
+    #tests = { 'synch' }
+
+    print("Performing tests:", ', '.join(f"'{t}'" for t in tests), "on", len(txns), "txids ...")
 
     if 'synch' in tests:
-        # First, do it all synchronously
+        found = 0
+        bad = 0
+        notfound = 0
         for tx_hash_hex in txns:
             tx_hash = bytes.fromhex(tx_hash_hex)
             try:
                 txd = c.Transaction_Sync(tx_hash, trace=False, dont_raise_on_error=False) # synch req
             except GRPCError as e:
                 if e.status == Status.NOT_FOUND:
+                    notfound += 1
                     print("NOT FOUND", e.message)
                     continue
                 else:
@@ -383,23 +429,30 @@ def test_txns(c: Client):
                 break
             except MalformedResponse as e:
                 # exmple of potential checks we do within the coroutine and how to handle them when they fail
+                bad += 1
                 print("TxID mismatch:", *e.args[1:])
             else:
+                found += 1
                 print("TxID ok; bytes:", len(txd['raw_tx']), "height:", txd['merkle']['block_height'] or '??')
+        print(f"Synchronous test complete on {len(txns)} txns (found: {found}, notfound: {notfound}, bad: {bad})")
 
     if 'asynch' in tests:
+        timeout = len(txns)
+        found = 0
+        bad = 0
+        notfound = 0
         # Now, do it async. with a callback
         q = queue.Queue()
         for tx_hash_hex in txns:
             tx_hash = bytes.fromhex(tx_hash_hex)
             def callback(res, *, tx_hash=tx_hash):
                 q.put((tx_hash, res))
-            c.Transaction_CB(callback, tx_hash) # asynch req
+            c.Transaction_CB(callback, tx_hash, timeout=timeout) # asynch req
         print("Submitted", len(txns), "asynch. callbacks ...")
         ctr = 0
         while ctr < len(txns):
             try:
-                tx_hash, res = q.get(timeout=10.0)
+                tx_hash, res = q.get(timeout=timeout)
                 tx_hash_hex = tx_hash.hex()
                 ctr += 1
             except queue.Empty:
@@ -410,21 +463,25 @@ def test_txns(c: Client):
                 if isinstance(e, GRPCError):
                     if e.status == Status.NOT_FOUND:
                         print("NOT FOUND", tx_hash_hex[:8], e.message)
+                        notfound += 1
                     else:
                         raise e  # unknown/unexpected error status
                 elif isinstance(e, (OSError, StreamTerminatedError, ProtocolError)):
                     # example of what errrors grpclib can raise on comm./network error
                     print("Low-level I/O Error:", tx_hash_hex[:8], repr(e))
+                    return
                 elif isinstance(e, MalformedResponse):
                     # exmple of potential checks we do within the coroutine and how to handle them when they fail
                     print("TxID mismatch:", *e.args[1:])
+                    bad += 1
                 else:
                     raise e
             else:
                 txd = res
+                found += 1
                 print("TxID", tx_hash_hex[:8], "ok; bytes:", len(txd['raw_tx']), "height:", txd['merkle']['block_height'] or '??')
         assert ctr == len(txns)
-        print(f"Got {ctr} txn replies asynchronously, yay!")
+        print(f"Got {ctr} txn replies asynchronously (found: {found}, notfound: {notfound}, bad: {bad}), yay!")
 
 if __name__ == "__main__":
     main()
