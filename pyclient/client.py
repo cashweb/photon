@@ -368,6 +368,7 @@ def main():
     hdr_parser = subparsers.add_parser("hdr", help="Do the header.Headers test, specify 'hdr -h' to see CLI options for this test.")
     hdr_parser.add_argument("start", type=int, nargs='?', default=0, metavar="start_height", help="The start height from which to begin the header download. 0 for the beginning of time. Defaults to 0.")
     hdr_parser.add_argument("count", type=int, nargs='?', default=0, metavar="count", help="The number of headers to download starting at the start height, or 0 for all up until present. Defaults to 0.")
+    hdr_parser.add_argument("-p", action="store_true", help="If specified, print the headers retrieved as hex bytes, one header per line.")
     del exgrp
 
     args = parser.parse_args()
@@ -557,15 +558,19 @@ def test_hdr(c: Client, args: argparse.Namespace):
     t0 = time.time()
     d = c.Headers_Sync(args.start, args.count, trace=False)
     assert d, "Empty results"
-    good = [ len(h) == 80 for h in d['headers'] ]
+    hdrs = d['headers']
+    good = [ len(h) == 80 for h in hdrs ]
     if not all(good):
         bad_idx = good.index(False)
-        raise AssertionError(f"Got a header that is not 80 bytes! block # {args.start + bad_idx}", d['headers'][bad_idx].hex())
-    num = len(d['headers'])
+        raise AssertionError(f"Got a header that is not 80 bytes! block # {args.start + bad_idx}", hdrs[bad_idx].hex())
+    num = len(hdrs)
     status = "ok"
     if args.count != 0 and num != args.count:
         status = f"error, expected {args.count} headers!"
     print(f"Got {num} headers in {time.time()-t0} secs, {status}")
+    if args.p and status == "ok":
+        for height, h in enumerate(hdrs, start=args.start):
+            print(height, h.hex())
 
 
 
