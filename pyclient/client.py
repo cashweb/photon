@@ -355,6 +355,7 @@ def main():
 
     parser = argparse.ArgumentParser(prog="client.py", description="Test Photon Python Client")
     parser.add_argument('host', nargs='?', metavar="hostspec", help='host:port to connect to')
+    parser.add_argument('-s', action="store_true", dest="ssl", help="If specified, will attempt to contact the server via SSL/TLS.")
     parser.add_argument('-q', action='store_true', help="If specified, turn off some of the verbose protocol trace printing; default is to show the verbose trace.")
     subparsers = parser.add_subparsers(title="Tests to run", description="Select from one of the following tests:", dest="test")
     # transaction test subcommand
@@ -383,16 +384,16 @@ def main():
             print("Failed to parse host:port\n")
             parser.print_help()
             sys.exit(1)
-        print(f"Note: Will connect to default {host}:{port}, specify a HOST:PORT on the command-line to override.")
+        print(f"Note: Will connect to default {host}:{port}{' (SSL)' if args.ssl else ''}, specify a HOST:PORT on the command-line to override.")
     else:
-        print(f"Command-line host:port specified: \"{host}:{port}\"")
+        print(f"Command-line host:port specified: {host}:{port}{' (SSL)' if args.ssl else ''}")
 
     test = args.test
     if args.test is None:
         print("*** Warning: Did not specify a test to run, will just run the 'utility' endpoints and exit.\n"
               "*** Use the -h option to see the tests available.\n")
 
-    c = Client(host, port, logger=print, dont_raise_on_error=True, trace=not args.q)
+    c = Client(host, port, logger=print, dont_raise_on_error=True, trace=not args.q, ssl=bool(args.ssl))
     c.start()
 
     c.Version_Sync("Photon PyClient", "0.1.0")
