@@ -9,6 +9,7 @@ use rocksdb::{Error, Options, DB};
 
 use crate::net::transaction::model::TransactionResponse;
 
+// Values larger than 32 will cause panics
 const TX_ID_PREFIX_LEN: usize = 8;
 
 #[derive(Clone)]
@@ -32,13 +33,29 @@ impl Database {
     }
 
     pub fn put_tx(&self, tx_id: &[u8; 32], data: &TransactionResponse) -> Result<(), Error> {
+        // Encode transaction response
         let mut raw = Vec::with_capacity(data.encoded_len());
         data.encode(&mut raw).unwrap();
-        self.0.put(&tx_id[..TX_ID_PREFIX_LEN], raw)
+
+        // Prefix key
+        let mut key: [u8; TX_ID_PREFIX_LEN + 1] = [0; TX_ID_PREFIX_LEN + 1];
+        key[0] = b't';
+        for i in 0..TX_ID_PREFIX_LEN {
+            key[i + 1] = tx_id[i]
+        }
+
+        self.0.put(&key, raw)
     }
 
     pub fn get_tx(&self, tx_id: &[u8; 32]) -> Result<CachedOption<TransactionResponse>, Error> {
-        self.0.get(&tx_id[..TX_ID_PREFIX_LEN]).map(|opt| match opt {
+        // Prefix key
+        let mut key: [u8; TX_ID_PREFIX_LEN + 1] = [0; TX_ID_PREFIX_LEN + 1];
+        key[0] = b't';
+        for i in 0..TX_ID_PREFIX_LEN {
+            key[i + 1] = tx_id[i]
+        }
+
+        self.0.get(&key).map(|opt| match opt {
             Some(some) => {
                 // TODO: Use wrapping metadata protobuf
                 let tx_entry = TransactionResponse::decode(some.as_ref()).unwrap();
@@ -51,5 +68,10 @@ impl Database {
             }
             None => CachedOption::None,
         })
+    }
+
+    pub fn set_sync_position(&self, position: u32) -> Result<(), Error> {
+        let key: [u8; 1] = [b's'];
+        self.0.put(&key[..], position.to_le_bytes())
     }
 }

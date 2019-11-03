@@ -1,5 +1,5 @@
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicU32, AtomicUsize, Ordering},
     RwLock,
 };
 
@@ -9,7 +9,10 @@ use crossbeam::{
 };
 use futures::channel::oneshot;
 
+use crate::db::Database;
+
 const RESUME_QUEUE_SIZE: usize = 2048;
+const PERSIST_SYNC_POS_INTERVAL: u32 = 32;
 
 /// Represents the current state of the service
 #[derive(Copy, Clone)]
@@ -27,6 +30,8 @@ pub struct StateMananger {
     resume_queue: ArrayQueue<oneshot::Sender<bool>>,
     /// Stores the number of active requests
     active_counter: CachePadded<AtomicUsize>,
+    /// Stores the current sync position
+    sync_position: CachePadded<AtomicU32>,
 }
 
 impl Default for StateMananger {
@@ -35,6 +40,7 @@ impl Default for StateMananger {
             state: RwLock::new(State::Syncing),
             resume_queue: ArrayQueue::new(RESUME_QUEUE_SIZE),
             active_counter: CachePadded::new(AtomicUsize::new(0)),
+            sync_position: CachePadded::new(AtomicU32::new(0)),
         }
     }
 }
@@ -48,7 +54,7 @@ impl StateMananger {
         // Keep trying to push until space
         while let Err(PushError(err_send)) = self.resume_queue.push(send) {
             send = err_send;
-            // Expell oldest from resume queue with false
+            // Expel oldest from resume queue with false
             if let Ok(expelled) = self.resume_queue.pop() {
                 expelled.send(false).unwrap();
             }
@@ -113,5 +119,15 @@ impl StateMananger {
             _ => (),
         }
         *state_write = new_state;
+    }
+
+    /// Increment sync position
+    pub fn set_sync_position(&self, db: Database) {
+        let position = self.sync_position.fetch_add(1, Ordering::Relaxed);
+
+        // Catch result every 30 blocks
+        if position % PERSIST_SYNC_POS_INTERVAL == 0 {
+            db.set_sync_position(position);
+        }
     }
 }
