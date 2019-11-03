@@ -4,14 +4,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .build_server(true)
         .build_client(false)
+        .compile(&["proto/database.proto"], &["proto"])?;
+    tonic_build::configure()
+        .build_server(true)
+        .build_client(false)
+        .compile(&["proto/header.proto"], &["proto"])?;
+    tonic_build::configure()
+        .build_server(true)
+        .build_client(false)
         .compile(&["proto/utility.proto"], &["proto"])?;
     tonic_build::configure()
         .build_server(true)
         .build_client(false)
         .compile(&["proto/transaction.proto"], &["proto"])?;
-    tonic_build::configure()
-        .build_server(true)
-        .build_client(false)
-        .compile(&["proto/database.proto"], &["proto"])?;
+
     Ok(())
 }

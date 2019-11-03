@@ -17,6 +17,7 @@ use tonic::transport::{Error as TonicError, Server};
 use crate::{
     bitcoin::client::BitcoinClient,
     net::{
+        header::{model::server::HeaderServer, HeaderService},
         transaction::{model::server::TransactionServer, TransactionService},
         utility::{model::server::UtilityServer, UtilityService},
     },
@@ -101,6 +102,12 @@ async fn main() -> Result<(), AppError> {
     };
     let sync = synchronize(bitcoin_client.clone(), db.clone(), sync_opt);
 
+    // Construct header service
+    let header_svc = HeaderServer::new(HeaderService {
+        bitcoin_client: bitcoin_client.clone(),
+        db: db.clone(),
+    });
+
     // Construct utility service
     let utility_svc = UtilityServer::new(UtilityService {});
 
@@ -111,6 +118,7 @@ async fn main() -> Result<(), AppError> {
     let addr = SETTINGS.bind.parse().unwrap();
     info!("starting server @ {}", addr);
     let server = Server::builder()
+        .add_service(header_svc)
         .add_service(utility_svc)
         .add_service(transaction_svc)
         .serve(addr);
