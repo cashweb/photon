@@ -204,6 +204,7 @@ class Client:
 
 
     async def Sleeper(self, delay=5.0) -> int:
+        '''Utility function for testing a hanging async method'''
         await asyncio.sleep(delay)
         import random
         return random.randint(1, 1024)
@@ -310,19 +311,27 @@ class Client:
     def Sleeper_CB(self, callback: Callable[[Union[int, Exception]], None], delay=5.0, *, timeout=10.0):
         self._do_cb(self.Sleeper(delay), callback, timeout=timeout)
 
+# ---
+# Stuff for testing below
+
+import argparse
+
 def main():
-    import argparse
 
     host = Client.DEFAULT_HOST
     port = Client.DEFAULT_PORT
 
     parser = argparse.ArgumentParser(prog="client.py", description="Test Photon Python Client")
-    parser.add_argument('host', nargs='?', help='host:port to connect to')
-    parser.add_argument('-t', nargs=1, metavar='file', help="Transaction file to read for the transaction.Transaction test; default to use an internal list")
-    parser.add_argument('-l', type=int, metavar='limit', help="Limit the number of transaction.Transaction requests to spam to this value; default 0 (unlimited)")
-    parser.add_argument('-q', action='store_true', help="If specified, turn off some of the verbose protocol trace printing; default is to show the verbose trace")
-    parser.add_argument('--sync', action='store_true', help="If specified, the transaction.Transaction tests will be conducted using synchronously (in series); default asynch")
-    parser.add_argument('--timeout', type=float, metavar="seconds", help="If specified, the transaction.Transaction asynch tests will use this value as a timeout in seconds; defaults to the length of the tx list")
+    parser.add_argument('host', nargs='?', metavar="hostspec", help='host:port to connect to')
+    parser.add_argument('-q', action='store_true', help="If specified, turn off some of the verbose protocol trace printing; default is to show the verbose trace.")
+    subparsers = parser.add_subparsers(title="Tests to run", description="Select from one of the following tests:", dest="test")
+    txn_parser = subparsers.add_parser("txn", help="Do the transaction.Transaction test, specify 'txn -h' to see CLI options for this test.")
+    txn_parser.add_argument('-f', metavar='file', help="Text file containing hex-encoded transaction id's to read for the transaction.Transaction test. If not specified, defaults to using a hard-coded list of 15 main net txids.")
+    txn_parser.add_argument('-l', type=int, metavar='limit', help="Limit the number of transaction.Transaction requests to spam to this value; default 0 (unlimited).")
+    exgrp = txn_parser.add_mutually_exclusive_group()
+    exgrp.add_argument('--sync', action='store_true', help="If specified, the transaction.Transaction tests will be conducted using synchronously (in series); default asynch.")
+    exgrp.add_argument('--timeout', type=float, metavar="seconds", help="If specified, the transaction.Transaction asynch tests will use this value as a timeout in seconds; defaults to the length of the tx list.")
+    del exgrp
     args = parser.parse_args()
 
     try:
@@ -339,53 +348,21 @@ def main():
     else:
         print(f"Command-line host:port specified: \"{host}:{port}\"")
 
-    limit = args.l or 0
-    txns = []
-    if args.t:
-        fn = args.t[0]
-        print(f"Reading transaction id's from '{fn}' ...")
-        line_ctr = 0
-        len_ctr = 0
-        try:
-            with open(fn, "rt") as f:
-                for line in f:
-                    txid = bytes.fromhex(line.strip()).hex()
-                    line_ctr += 1
-                    assert(len(txid) == 64), "TXID must be 32 bytes"
-                    txns.append(txid)
-                    len_ctr += 1
-                    if limit and len_ctr >= limit:
-                        break
-        except OSError as e:
-            print(f"File error on '{fn}': {e}")
-            sys.exit(1)
-        except Exception as e:
-            print("Error parsing txid on line:", line_ctr, ",", e)
-            sys.exit(1)
-        else:
-            print(f"Read {len(txns)} txid's from file")
-    elif args.l:
-        print("-l option cannot be specified without the -t option!\n")
-        parser.print_help()
-        sys.exit(1)
-
-    tx_tests = {'asynch'} if not args.sync else {'synch'}
-
-    timeout = args.timeout
-    if timeout is not None and 'asynch' not in tx_tests:
-        print("--timeout option can only be specified for asynch tests\n")
-        parser.print_help()
-        sys.exit(1)
+    test = args.test
+    if args.test is None:
+        print("*** Warning: Did not specify a test to run, will just run the 'utility' endpoints and exit.\n"
+              "*** Use the -h option to see the tests available.\n")
 
     c = Client(host, port, logger=print, dont_raise_on_error=True, trace=not args.q)
-    print(repr(threading.current_thread()))
     c.start()
+
     c.Version_Sync("Photon PyClient", "0.1.0")
     c.Banner_Sync()
     c.Ping_Sync()
     c.DonationAddress_Sync()
 
-    test_txns(c, txns=txns, tests=tx_tests, timeout=timeout)
+    if test == "txn":
+        test_txns(c, args)
 
     # Testing interrupting an in-progress operation
     def got_result(x):
@@ -397,7 +374,39 @@ def main():
     time.sleep(2.5)
     c.stop()
 
-def test_txns(c: Client, *, txns=None, tests=None, timeout=None):
+def test_txns(c: Client, args: argparse.Namespace):
+    # parse args
+    limit = args.l or 0
+    txns = []
+    if args.f:
+        fn = args.f
+        print(f"Reading transaction id's from '{fn}' ...")
+        line_ctr = 0
+        len_ctr = 0
+        try:
+            with open(fn, "rt") as f:
+                for line in f:
+                    line_ctr += 1
+                    for part in line.strip().split():
+                        txid = bytes.fromhex(part.strip()).hex() # test hex decode ok
+                        assert(len(txid) == 64), "TXID must be 32 bytes"
+                        txns.append(txid)
+                        len_ctr += 1
+                        if limit and len_ctr >= limit:
+                            break
+        except OSError as e:
+            print(f"File error on '{fn}': {e}")
+            sys.exit(1)
+        except Exception as e:
+            print("Error parsing txid on line:", line_ctr, ",", e)
+            sys.exit(1)
+        else:
+            print(f"Read {len(txns)} txid's from file")
+
+    tests = {'asynch'} if not args.sync else {'synch'}
+
+    timeout = args.timeout
+
     txns = txns or (
            [ 'a3e0b7558e67f5cadd4a3166912cbf6f930044124358ef3a9afd885ac391625d',  # <-- early txid block <200
              'f399cb6c5bed7bb36d44f361c29dd5ecf12deba163470d8835b7ba0c4ed8aebd',  # "
@@ -416,8 +425,10 @@ def test_txns(c: Client, *, txns=None, tests=None, timeout=None):
              'b33ff00db33f00d00000000000000000000000000000000000000000deadb33f',  # <-- invalid txid (should always throw NOT FOUND)
             ]
     )
+    if limit > 0:
+        txns = txns[:limit]
 
-    tests = tests or { 'asynch' }
+    # overrides for testing
     #tests = { 'synch', 'asynch' }
     #tests = { 'asynch' }
     #tests = { 'synch' }
