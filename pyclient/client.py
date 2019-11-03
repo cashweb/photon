@@ -322,6 +322,7 @@ def main():
     parser.add_argument('-l', type=int, metavar='limit', help="Limit the number of transaction.Transaction requests to spam to this value; default 0 (unlimited)")
     parser.add_argument('-q', action='store_true', help="If specified, turn off some of the verbose protocol trace printing; default is to show the verbose trace")
     parser.add_argument('--sync', action='store_true', help="If specified, the transaction.Transaction tests will be conducted using synchronously (in series); default asynch")
+    parser.add_argument('--timeout', type=float, metavar="seconds", help="If specified, the transaction.Transaction asynch tests will use this value as a timeout in seconds; defaults to the length of the tx list")
     args = parser.parse_args()
 
     try:
@@ -370,6 +371,12 @@ def main():
 
     tx_tests = {'asynch'} if not args.sync else {'synch'}
 
+    timeout = args.timeout
+    if timeout is not None and 'asynch' not in tx_tests:
+        print("--timeout option can only be specified for asynch tests\n")
+        parser.print_help()
+        sys.exit(1)
+
     c = Client(host, port, logger=print, dont_raise_on_error=True, trace=not args.q)
     print(repr(threading.current_thread()))
     c.start()
@@ -378,7 +385,7 @@ def main():
     c.Ping_Sync()
     c.DonationAddress_Sync()
 
-    test_txns(c, txns=txns, tests=tx_tests)
+    test_txns(c, txns=txns, tests=tx_tests, timeout=timeout)
 
     # Testing interrupting an in-progress operation
     def got_result(x):
@@ -390,7 +397,7 @@ def main():
     time.sleep(2.5)
     c.stop()
 
-def test_txns(c: Client, *, txns=None, tests=None):
+def test_txns(c: Client, *, txns=None, tests=None, timeout=None):
     txns = txns or (
            [ 'a3e0b7558e67f5cadd4a3166912cbf6f930044124358ef3a9afd885ac391625d',  # <-- early txid block <200
              'f399cb6c5bed7bb36d44f361c29dd5ecf12deba163470d8835b7ba0c4ed8aebd',  # "
@@ -446,7 +453,7 @@ def test_txns(c: Client, *, txns=None, tests=None):
         print(f"Synchronous test complete on {len(txns)} txns (found: {found}, notfound: {notfound}, bad: {bad})")
 
     if 'asynch' in tests:
-        timeout = float(len(txns))
+        timeout = timeout or float(len(txns))
         found = 0
         bad = 0
         notfound = 0
@@ -459,7 +466,7 @@ def test_txns(c: Client, *, txns=None, tests=None):
             c.Transaction_CB(callback, tx_hash, timeout=timeout) # asynch req
             if int(i % 1000) == 0:
                 print("progress:", i, "requests ...")
-        print("Submitted", len(txns), "asynch. callbacks (will wait for all to finish)...")
+        print("Submitted", len(txns), "asynch. callbacks (will wait for all to finish for up to ", timeout, "seconds)...")
         ctr = 0
         while ctr < len(txns):
             try:
