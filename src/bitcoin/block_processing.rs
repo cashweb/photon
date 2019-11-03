@@ -1,5 +1,6 @@
 use bitcoin::{consensus::encode::Decodable, consensus::encode::Error as ConsensusError, Block};
 use futures::{future::join_all, prelude::*};
+use rocksdb::Error as RocksError;
 
 use super::{client::*, tx_processing::*};
 use crate::db::Database;
@@ -11,6 +12,7 @@ pub enum BlockProcessingError {
     Bitcoin(BitcoinError),
     BlockDecoding(ConsensusError),
     Transaction(TxProcessingError),
+    Database(RocksError),
 }
 
 impl From<TxProcessingError> for BlockProcessingError {
@@ -31,10 +33,16 @@ impl From<ConsensusError> for BlockProcessingError {
     }
 }
 
+impl From<RocksError> for BlockProcessingError {
+    fn from(err: RocksError) -> Self {
+        BlockProcessingError::Database(err)
+    }
+}
+
 pub async fn par_process_block_stream(
     raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + Send,
     db: Database,
-    block_callback: &dyn Fn(u32),
+    block_callback: &dyn Fn(u32) -> Result<(), BlockProcessingError>,
 ) -> Result<(), BlockProcessingError> {
     // Split stream into chunks
     let block_stream = raw_block_stream.chunks(BLOCK_CHUNK_SIZE).map(
@@ -70,7 +78,8 @@ pub async fn par_process_block_stream(
                     .into_iter()
                     .map(move |(block_height, block): (u32, Block)| {
                         // Do some action dependending on block height
-                        block_callback(block_height);
+                        // TODO: I'm not happy with this unwrap, fix during reevaluation
+                        block_callback(block_height).unwrap();
 
                         // Process transactions
                         let txs = block.txdata;

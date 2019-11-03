@@ -2,7 +2,7 @@ pub mod model {
     tonic::include_proto!("database");
 }
 
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 use prost::Message;
 use rocksdb::{Error, Options, DB};
@@ -72,6 +72,18 @@ impl Database {
 
     pub fn set_sync_position(&self, position: u32) -> Result<(), Error> {
         let key: [u8; 1] = [b's'];
-        self.0.put(&key[..], position.to_le_bytes())
+        let bytes = position.to_le_bytes();
+        self.0.put(&key[..], bytes)
+    }
+
+    pub fn get_sync_position(&self) -> Result<Option<u32>, Error> {
+        let key: [u8; 1] = [b's'];
+        self.0.get(&key[..]).map(|res| {
+            res.map(|val| {
+                // This panics is record is malformed
+                let bytes: [u8; 4] = val.as_ref().try_into().unwrap();
+                u32::from_le_bytes(bytes)
+            })
+        })
     }
 }

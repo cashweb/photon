@@ -9,10 +9,7 @@ use crossbeam::{
 };
 use futures::channel::oneshot;
 
-use crate::db::Database;
-
 const RESUME_QUEUE_SIZE: usize = 2048;
-const PERSIST_SYNC_POS_INTERVAL: u32 = 32;
 
 /// Represents the current state of the service
 #[derive(Copy, Clone)]
@@ -122,12 +119,17 @@ impl StateMananger {
     }
 
     /// Increment sync position
-    pub fn set_sync_position(&self, db: Database) {
-        let position = self.sync_position.fetch_add(1, Ordering::Relaxed);
+    pub fn increment_sync_position(&self) -> u32 {
+        self.sync_position.fetch_add(1, Ordering::Release)
+    }
 
-        // Catch result every 30 blocks
-        if position % PERSIST_SYNC_POS_INTERVAL == 0 {
-            db.set_sync_position(position);
-        }
+    /// Sync position
+    pub fn set_sync_position(&self, position: u32) {
+        self.sync_position.store(position, Ordering::Release);
+    }
+
+    /// Get sync position
+    pub fn sync_position(&self) -> u32 {
+        self.sync_position.load(Ordering::SeqCst)
     }
 }

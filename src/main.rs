@@ -61,6 +61,9 @@ lazy_static! {
             .long("donation-address")
             .help("Sets donation address")
             .takes_value(true))
+        .arg(Arg::with_name("resync")
+            .long("resync")
+            .help("Resynchronise the server from scratch"))
         .get_matches();
 
     // Fetch settings
@@ -91,7 +94,12 @@ async fn main() -> Result<(), AppError> {
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
 
-    let sync = synchronize(bitcoin_client.clone(), db.clone());
+    let sync_opt = if CLI_ARGS.is_present("resync") {
+        Some(0)
+    } else {
+        None
+    };
+    let sync = synchronize(bitcoin_client.clone(), db.clone(), sync_opt);
 
     // Construct utility service
     let utility_svc = UtilityServer::new(UtilityService {});
