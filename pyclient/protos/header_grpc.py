@@ -13,7 +13,7 @@ import google.protobuf.empty_pb2
 import protos.header_pb2
 
 
-class HeadersBase(abc.ABC):
+class HeaderBase(abc.ABC):
 
     @abc.abstractmethod
     async def Headers(self, stream: 'grpclib.server.Stream[protos.header_pb2.HeadersRequest, protos.header_pb2.HeadersResponse]') -> None:
@@ -25,13 +25,13 @@ class HeadersBase(abc.ABC):
 
     def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
-            '/header.Headers/Headers': grpclib.const.Handler(
+            '/header.Header/Headers': grpclib.const.Handler(
                 self.Headers,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 protos.header_pb2.HeadersRequest,
                 protos.header_pb2.HeadersResponse,
             ),
-            '/header.Headers/Subscribe': grpclib.const.Handler(
+            '/header.Header/Subscribe': grpclib.const.Handler(
                 self.Subscribe,
                 grpclib.const.Cardinality.UNARY_STREAM,
                 google.protobuf.empty_pb2.Empty,
@@ -40,18 +40,18 @@ class HeadersBase(abc.ABC):
         }
 
 
-class HeadersStub:
+class HeaderStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
         self.Headers = grpclib.client.UnaryUnaryMethod(
             channel,
-            '/header.Headers/Headers',
+            '/header.Header/Headers',
             protos.header_pb2.HeadersRequest,
             protos.header_pb2.HeadersResponse,
         )
         self.Subscribe = grpclib.client.UnaryStreamMethod(
             channel,
-            '/header.Headers/Subscribe',
+            '/header.Header/Subscribe',
             google.protobuf.empty_pb2.Empty,
             protos.header_pb2.SubscribeResponse,
         )

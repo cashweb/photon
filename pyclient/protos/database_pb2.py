@@ -20,145 +20,10 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='database',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x15protos/database.proto\x12\x08\x64\x61tabase\"U\n\x10TransactionEntry\x12\x0e\n\x06raw_tx\x18\x01 \x01(\x0c\x12\x14\n\x0c\x62lock_height\x18\x02 \x01(\r\x12\x0e\n\x06merkle\x18\x03 \x03(\x0c\x12\x0b\n\x03pos\x18\x04 \x01(\r\";\n\x0bHeaderEntry\x12\x0e\n\x06header\x18\x01 \x01(\x0c\x12\x0c\n\x04root\x18\x02 \x01(\x0c\x12\x0e\n\x06\x62ranch\x18\x03 \x03(\x0c\"1\n\x0eScriptHashItem\x12\x0e\n\x06height\x18\x01 \x01(\r\x12\x0f\n\x07tx_hash\x18\x02 \x01(\x0c\"_\n\x13ScriptHashCacheItem\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\x12\x15\n\rcached_status\x18\x02 \x01(\x0c\x12\x1c\n\x14\x63\x61\x63hed_status_height\x18\x03 \x01(\rb\x06proto3')
+  serialized_pb=_b('\n\x15protos/database.proto\x12\x08\x64\x61tabase\"_\n\x13ScriptHashCacheItem\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\x12\x15\n\rcached_status\x18\x02 \x01(\x0c\x12\x1c\n\x14\x63\x61\x63hed_status_height\x18\x03 \x01(\rb\x06proto3')
 )
 
 
-
-
-_TRANSACTIONENTRY = _descriptor.Descriptor(
-  name='TransactionEntry',
-  full_name='database.TransactionEntry',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='raw_tx', full_name='database.TransactionEntry.raw_tx', index=0,
-      number=1, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b(""),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='block_height', full_name='database.TransactionEntry.block_height', index=1,
-      number=2, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='merkle', full_name='database.TransactionEntry.merkle', index=2,
-      number=3, type=12, cpp_type=9, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='pos', full_name='database.TransactionEntry.pos', index=3,
-      number=4, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=35,
-  serialized_end=120,
-)
-
-
-_HEADERENTRY = _descriptor.Descriptor(
-  name='HeaderEntry',
-  full_name='database.HeaderEntry',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='header', full_name='database.HeaderEntry.header', index=0,
-      number=1, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b(""),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='root', full_name='database.HeaderEntry.root', index=1,
-      number=2, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b(""),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='branch', full_name='database.HeaderEntry.branch', index=2,
-      number=3, type=12, cpp_type=9, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=122,
-  serialized_end=181,
-)
-
-
-_SCRIPTHASHITEM = _descriptor.Descriptor(
-  name='ScriptHashItem',
-  full_name='database.ScriptHashItem',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='height', full_name='database.ScriptHashItem.height', index=0,
-      number=1, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='tx_hash', full_name='database.ScriptHashItem.tx_hash', index=1,
-      number=2, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b(""),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=183,
-  serialized_end=232,
-)
 
 
 _SCRIPTHASHCACHEITEM = _descriptor.Descriptor(
@@ -201,36 +66,12 @@ _SCRIPTHASHCACHEITEM = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=234,
-  serialized_end=329,
+  serialized_start=35,
+  serialized_end=130,
 )
 
-DESCRIPTOR.message_types_by_name['TransactionEntry'] = _TRANSACTIONENTRY
-DESCRIPTOR.message_types_by_name['HeaderEntry'] = _HEADERENTRY
-DESCRIPTOR.message_types_by_name['ScriptHashItem'] = _SCRIPTHASHITEM
 DESCRIPTOR.message_types_by_name['ScriptHashCacheItem'] = _SCRIPTHASHCACHEITEM
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
-
-TransactionEntry = _reflection.GeneratedProtocolMessageType('TransactionEntry', (_message.Message,), {
-  'DESCRIPTOR' : _TRANSACTIONENTRY,
-  '__module__' : 'protos.database_pb2'
-  # @@protoc_insertion_point(class_scope:database.TransactionEntry)
-  })
-_sym_db.RegisterMessage(TransactionEntry)
-
-HeaderEntry = _reflection.GeneratedProtocolMessageType('HeaderEntry', (_message.Message,), {
-  'DESCRIPTOR' : _HEADERENTRY,
-  '__module__' : 'protos.database_pb2'
-  # @@protoc_insertion_point(class_scope:database.HeaderEntry)
-  })
-_sym_db.RegisterMessage(HeaderEntry)
-
-ScriptHashItem = _reflection.GeneratedProtocolMessageType('ScriptHashItem', (_message.Message,), {
-  'DESCRIPTOR' : _SCRIPTHASHITEM,
-  '__module__' : 'protos.database_pb2'
-  # @@protoc_insertion_point(class_scope:database.ScriptHashItem)
-  })
-_sym_db.RegisterMessage(ScriptHashItem)
 
 ScriptHashCacheItem = _reflection.GeneratedProtocolMessageType('ScriptHashCacheItem', (_message.Message,), {
   'DESCRIPTOR' : _SCRIPTHASHCACHEITEM,

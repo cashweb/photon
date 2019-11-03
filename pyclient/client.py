@@ -29,6 +29,8 @@ from protos import utility_pb2
 from protos import utility_grpc
 from protos import transaction_pb2
 from protos import transaction_grpc
+from protos import header_pb2
+from protos import header_grpc
 
 class MalformedResponse(Exception):
     ''' Thrown if the response from the server violates a guarantee
@@ -89,6 +91,7 @@ class Client:
         self.thr = None
         self.utility: utility_grpc.UtilityStub = None
         self.transaction: transaction_grpc.TransactionStub = None
+        self.header: header_grpc.HeaderStub = None
         self.loop = None
         self.id = self.id_next()
         self.dont_raise_on_error = dont_raise_on_error
@@ -133,6 +136,7 @@ class Client:
             channel = Channel(*self.host_port, loop=self.loop, ssl=self.ssl)
             self.utility = utility_grpc.UtilityStub(channel)
             self.transaction = transaction_grpc.TransactionStub(channel)
+            self.header = header_grpc.HeaderStub(channel)
             self.thr.q.put(True)
             self.loop.run_forever()
         except Exception as e:
@@ -147,6 +151,8 @@ class Client:
                 self.utility = None
             if self.transaction:
                 self.transaction = None
+            if self.header:
+                self.header = None
             self.logger(f"thread '{threading.current_thread().name}' exiting after running for {time.time()-t0:.3f} seconds")
 
     # CAUTION --
@@ -155,6 +161,7 @@ class Client:
     #   and that isn't using this class's event loop.
     #
     async def Version(self, useragent: str, version: str) -> Tuple[str, str]:
+        ''' Wraps utility.Version grpc method '''
         pb = utility_pb2
         if self.trace: self.logger(f"--> Sending utility.Version...")
         reply: pb.VersionResponse = await self.utility.Version(pb.VersionRequest(agent=useragent, version=version))
@@ -162,6 +169,7 @@ class Client:
         return (reply.agent, reply.version)
 
     async def Banner(self) -> str:
+        ''' Wraps utility.Banner grpc method '''
         pb = utility_pb2
         if self.trace: self.logger(f"--> Sending utility.Banner...")
         reply: pb.BannerResponse = await self.utility.Banner(Empty)
@@ -169,6 +177,7 @@ class Client:
         return reply.banner
 
     async def Ping(self) -> float:
+        ''' Wraps utility.Ping grpc method '''
         pb = utility_pb2
         if self.trace: self.logger(f"--> Sending utility.Ping...")
         t0 = time.time()
@@ -178,6 +187,7 @@ class Client:
         return elapsed
 
     async def DonationAddress(self) -> str:
+        ''' Wraps utility.DonationAddress grpc method '''
         pb = utility_pb2
         if self.trace: self.logger(f"--> Sending utility.DonationAddress ...")
         reply: pb.DonationAddressResponse = await self.utility.DonationAddress(Empty)
@@ -186,6 +196,7 @@ class Client:
         return reply.address
 
     async def Transaction(self, tx_hash: bytes) -> dict:
+        ''' Wraps transaction.Transaction grpc method '''
         pb = transaction_pb2
         if self.trace: self.logger(f"--> Sending transaction.Transaction('{tx_hash[:4].hex()}..{tx_hash[-4:].hex()}') ...")
         request = pb.TransactionRequest(tx_hash=tx_hash)
@@ -202,9 +213,23 @@ class Client:
             merkle_dict['pos'] = reply.merkle.pos
         return { 'raw_tx': reply.raw_tx, 'merkle': merkle_dict }
 
+    async def Headers(self, start_height: int, count: int, cp_height: int = 0) -> dict:
+        ''' Wraps header.Headers grpc method '''
+        pb = header_pb2
+        if self.trace: self.logger(f"--> Sending header.Headers({start_height},{count},{cp_height}) ...")
+        request = pb.HeadersRequest(start_height=start_height, count=count, cp_height=cp_height)
+        reply: pb.HeadersResponse = await self.header.Headers(request)
+        hdrs = list(reply.headers) if reply.headers else []
+        if self.trace: self.logger(f"<-- Got header.Headers: {len(hdrs)} headers ...")
+        return {
+            'headers' : hdrs,
+            'root'    : bytes(reply.root) if reply.root else b'',
+            'branch'  : list(reply.branch) if reply.branch else []
+        }
 
+    # --
     async def Sleeper(self, delay=5.0) -> int:
-        '''Utility function for testing a hanging async method'''
+        '''Helper function for testing a hanging async method'''
         await asyncio.sleep(delay)
         import random
         return random.randint(1, 1024)
@@ -282,6 +307,9 @@ class Client:
     # TRANSACTION service (Synchronous/Blocking-style methods)
     def Transaction_Sync(self, tx_hash: bytes, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> dict:
         return self._do_sync(self.Transaction(tx_hash), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
+    # HEADER service (Synchronous/Blocking-style methods)
+    def Headers_Sync(self, start_height: int, count: int, cp_height: int = 0, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> dict:
+        return self._do_sync(self.Headers(start_height, count, cp_height), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
     # testing...
     def Sleeper_Sync(self, delay=5.0, *, timeout=10.0, trace=None) -> int:
         return self._do_sync(self.Sleeper(delay), timeout=timeout, trace=trace)
@@ -295,7 +323,7 @@ class Client:
     #
     # UTILITY service (Callback-style methods)
     def Version_CB(self, callback: Callable[[Union[Tuple[str, str], Exception]], None],
-                   useragent: str, version: str, *, timeout=10.0):
+                    useragent: str, version: str, *, timeout=10.0):
         self._do_cb(self.Version(useragent, version), callback, timeout=timeout)
     def Banner_CB(self, callback: Callable[[Union[str, Exception]], None], *, timeout=10.0):
         self._do_cb(self.Banner(), callback, timeout=timeout)
@@ -305,8 +333,12 @@ class Client:
         self._do_cb(self.DonationAddress(), callback, timeout=timeout)
     # TRANSACTION service (Callback-style methods)
     def Transaction_CB(self, callback: Callable[[Union[dict, Exception]], None],
-                       tx_hash: bytes, *, timeout=10.0):
+                        tx_hash: bytes, *, timeout=10.0):
         self._do_cb(self.Transaction(tx_hash), callback, timeout=timeout)
+    # HEADER service (Callback-style methods)
+    def Headers_CB(self, callback: Callable[[Union[dict, Exception]], None],
+                    start_height: int, count: int, cp_height: int = 0, *, timeout=10.0):
+        self._do_cb(self.Headers(start_height, count, cp_height), callback, timeout=timeout)
     # testing...
     def Sleeper_CB(self, callback: Callable[[Union[int, Exception]], None], delay=5.0, *, timeout=10.0):
         self._do_cb(self.Sleeper(delay), callback, timeout=timeout)
@@ -325,13 +357,19 @@ def main():
     parser.add_argument('host', nargs='?', metavar="hostspec", help='host:port to connect to')
     parser.add_argument('-q', action='store_true', help="If specified, turn off some of the verbose protocol trace printing; default is to show the verbose trace.")
     subparsers = parser.add_subparsers(title="Tests to run", description="Select from one of the following tests:", dest="test")
+    # transaction test subcommand
     txn_parser = subparsers.add_parser("txn", help="Do the transaction.Transaction test, specify 'txn -h' to see CLI options for this test.")
     txn_parser.add_argument('-f', metavar='file', help="Text file containing hex-encoded transaction id's to read for the transaction.Transaction test. If not specified, defaults to using a hard-coded list of 15 main net txids.")
     txn_parser.add_argument('-l', type=int, metavar='limit', help="Limit the number of transaction.Transaction requests to spam to this value; default 0 (unlimited).")
     exgrp = txn_parser.add_mutually_exclusive_group()
     exgrp.add_argument('--sync', action='store_true', help="If specified, the transaction.Transaction tests will be conducted using synchronously (in series); default asynch.")
     exgrp.add_argument('--timeout', type=float, metavar="seconds", help="If specified, the transaction.Transaction asynch tests will use this value as a timeout in seconds; defaults to the length of the tx list.")
+    # header test subcommand
+    hdr_parser = subparsers.add_parser("hdr", help="Do the header.Headers test, specify 'hdr -h' to see CLI options for this test.")
+    hdr_parser.add_argument("start", type=int, nargs='?', default=0, metavar="start_height", help="The start height from which to begin the header download. 0 for the beginning of time. Defaults to 0.")
+    hdr_parser.add_argument("count", type=int, nargs='?', default=0, metavar="count", help="The number of headers to download starting at the start height, or 0 for all up until present. Defaults to 0.")
     del exgrp
+
     args = parser.parse_args()
 
     try:
@@ -363,6 +401,8 @@ def main():
 
     if test == "txn":
         test_txns(c, args)
+    elif test == 'hdr':
+        test_hdr(c, args)
 
     # Testing interrupting an in-progress operation
     def got_result(x):
@@ -395,11 +435,9 @@ def test_txns(c: Client, args: argparse.Namespace):
                         if limit and len_ctr >= limit:
                             break
         except OSError as e:
-            print(f"File error on '{fn}': {e}")
-            sys.exit(1)
+            sys.exit(f"\nFile error on '{fn}': {e}\n")
         except Exception as e:
-            print("Error parsing txid on line:", line_ctr, ",", e)
-            sys.exit(1)
+            sys.exit(f"\nError parsing txid on line: {line_ctr}, {e!r}\n")
         else:
             print(f"Read {len(txns)} txid's from file")
 
@@ -511,6 +549,25 @@ def test_txns(c: Client, args: argparse.Namespace):
                 print("TxID", i, tx_hash_hex[:8], "ok; bytes:", len(txd['raw_tx']), "height:", txd['merkle']['block_height'] or '??')
         assert ctr == len(txns)
         print(f"Got {ctr} txn replies asynchronously (found: {found}, notfound: {notfound}, bad: {bad}), yay!")
+
+def test_hdr(c: Client, args: argparse.Namespace):
+    if args.start < 0 or args.count < 0:
+        sys.exit("\nhdr: start_height or count may not be negative!\n")
+
+    t0 = time.time()
+    d = c.Headers_Sync(args.start, args.count, trace=False)
+    assert d, "Empty results"
+    good = [ len(h) == 80 for h in d['headers'] ]
+    if not all(good):
+        bad_idx = good.index(False)
+        raise AssertionError(f"Got a header that is not 80 bytes! block # {args.start + bad_idx}", d['headers'][bad_idx].hex())
+    num = len(d['headers'])
+    status = "ok"
+    if args.count != 0 and num != args.count:
+        status = f"error, expected {args.count} headers!"
+    print(f"Got {num} headers in {time.time()-t0} secs, {status}")
+
+
 
 if __name__ == "__main__":
     main()

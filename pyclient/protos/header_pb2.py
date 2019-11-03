@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='header',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x13protos/header.proto\x12\x06header\x1a\x1bgoogle/protobuf/empty.proto\"H\n\x0eHeadersRequest\x12\x14\n\x0cstart_height\x18\x01 \x01(\r\x12\r\n\x05\x63ount\x18\x02 \x01(\r\x12\x11\n\tcp_height\x18\x03 \x01(\r\"@\n\x0fHeadersResponse\x12\x0f\n\x07headers\x18\x01 \x03(\x0c\x12\x0c\n\x04root\x18\x02 \x01(\x0c\x12\x0e\n\x06\x62ranch\x18\x03 \x03(\x0c\"3\n\x11SubscribeResponse\x12\x0e\n\x06header\x18\x01 \x01(\x0c\x12\x0e\n\x06height\x18\x02 \x01(\r2\x87\x01\n\x07Headers\x12:\n\x07Headers\x12\x16.header.HeadersRequest\x1a\x17.header.HeadersResponse\x12@\n\tSubscribe\x12\x16.google.protobuf.Empty\x1a\x19.header.SubscribeResponse0\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x13protos/header.proto\x12\x06header\x1a\x1bgoogle/protobuf/empty.proto\"H\n\x0eHeadersRequest\x12\x14\n\x0cstart_height\x18\x01 \x01(\r\x12\r\n\x05\x63ount\x18\x02 \x01(\r\x12\x11\n\tcp_height\x18\x03 \x01(\r\"@\n\x0fHeadersResponse\x12\x0f\n\x07headers\x18\x01 \x03(\x0c\x12\x0c\n\x04root\x18\x02 \x01(\x0c\x12\x0e\n\x06\x62ranch\x18\x03 \x03(\x0c\"3\n\x11SubscribeResponse\x12\x0e\n\x06header\x18\x01 \x01(\x0c\x12\x0e\n\x06height\x18\x02 \x01(\r2\x86\x01\n\x06Header\x12:\n\x07Headers\x12\x16.header.HeadersRequest\x1a\x17.header.HeadersResponse\x12@\n\tSubscribe\x12\x16.google.protobuf.Empty\x1a\x19.header.SubscribeResponse0\x01\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,])
 
@@ -183,18 +183,18 @@ _sym_db.RegisterMessage(SubscribeResponse)
 
 
 
-_HEADERS = _descriptor.ServiceDescriptor(
-  name='Headers',
-  full_name='header.Headers',
+_HEADER = _descriptor.ServiceDescriptor(
+  name='Header',
+  full_name='header.Header',
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
   serialized_start=254,
-  serialized_end=389,
+  serialized_end=388,
   methods=[
   _descriptor.MethodDescriptor(
     name='Headers',
-    full_name='header.Headers.Headers',
+    full_name='header.Header.Headers',
     index=0,
     containing_service=None,
     input_type=_HEADERSREQUEST,
@@ -203,7 +203,7 @@ _HEADERS = _descriptor.ServiceDescriptor(
   ),
   _descriptor.MethodDescriptor(
     name='Subscribe',
-    full_name='header.Headers.Subscribe',
+    full_name='header.Header.Subscribe',
     index=1,
     containing_service=None,
     input_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
@@ -211,8 +211,8 @@ _HEADERS = _descriptor.ServiceDescriptor(
     serialized_options=None,
   ),
 ])
-_sym_db.RegisterServiceDescriptor(_HEADERS)
+_sym_db.RegisterServiceDescriptor(_HEADER)
 
-DESCRIPTOR.services_by_name['Headers'] = _HEADERS
+DESCRIPTOR.services_by_name['Header'] = _HEADER
 
 # @@protoc_insertion_point(module_scope)
