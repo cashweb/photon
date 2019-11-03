@@ -39,7 +39,7 @@ message SubscribeResponse {
   uint32 height = 2;
 }
 
-service Headers {
+service Header {
   // Return a concatenated chunk of block headers from the main chain.
   rpc Headers(HeadersRequest) returns (HeadersResponse);
   // Subscribe to receive block headers when a new block is found.

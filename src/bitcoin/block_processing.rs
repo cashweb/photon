@@ -1,4 +1,8 @@
-use bitcoin::{consensus::encode::Decodable, consensus::encode::Error as ConsensusError, Block};
+use bitcoin::{
+    consensus::encode::Error as ConsensusError,
+    consensus::encode::{Decodable, Encodable},
+    Block,
+};
 use futures::{future::join_all, prelude::*};
 use rocksdb::Error as RocksError;
 
@@ -9,7 +13,7 @@ const BLOCK_CHUNK_SIZE: usize = 128;
 
 #[derive(Debug)]
 pub enum BlockProcessingError {
-    Bitcoin(BitcoinError),
+    BlockDecode(BitcoinError),
     BlockDecoding(ConsensusError),
     Transaction(TxProcessingError),
     Database(RocksError),
@@ -18,12 +22,6 @@ pub enum BlockProcessingError {
 impl From<TxProcessingError> for BlockProcessingError {
     fn from(err: TxProcessingError) -> Self {
         BlockProcessingError::Transaction(err)
-    }
-}
-
-impl From<BitcoinError> for BlockProcessingError {
-    fn from(err: BitcoinError) -> Self {
-        BlockProcessingError::Bitcoin(err)
     }
 }
 
@@ -57,7 +55,7 @@ pub async fn par_process_block_stream(
                         Ok(ok) => ok,
                         Err(err) => {
                             warn!("failed to fetch block {:?}", err);
-                            return Err(BlockProcessingError::Bitcoin(err));
+                            return Err(BlockProcessingError::BlockDecode(err));
                         }
                     };
                     let block = Block::consensus_decode(&raw_block[..])?;
@@ -77,14 +75,20 @@ pub async fn par_process_block_stream(
                 res_vec
                     .into_iter()
                     .map(move |(block_height, block): (u32, Block)| {
-                        // Do some action dependending on block height
-                        // TODO: I'm not happy with this unwrap, fix during reevaluation
-                        block_callback(block_height).unwrap();
+                        let db_inner = db_inner.clone();
+                        async move {
+                            // Process header
+                            let mut raw_header: [u8; 80] = [0; 80];
+                            block.header.consensus_encode(&mut raw_header[..]).unwrap();
+                            db_inner.put_header(block_height, &raw_header)?;
 
-                        // Process transactions
-                        let txs = block.txdata;
-                        process_transactions(block_height, txs, db_inner.clone())
-                            .map_err(|err| err.into())
+                            // Do some action dependending on block height
+                            block_callback(block_height)?;
+
+                            // Process transactions
+                            let txs = block.txdata;
+                            Ok(process_transactions(block_height, txs, db_inner.clone()).await?)
+                        }
                     });
             join_all(chunked_iter).map(|result| {
                 result

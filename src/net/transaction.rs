@@ -55,6 +55,7 @@ impl model::server::Transaction for TransactionService {
         let tx_hash: [u8; 32] = request_inner.tx_hash[..]
             .try_into()
             .map_err(|_| Status::new(Code::InvalidArgument, INVALID_TX_ID_MSG.to_string()))?;
+
         match self
                 .db
                 .get_tx(&tx_hash)
