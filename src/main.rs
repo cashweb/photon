@@ -8,16 +8,14 @@ pub mod db;
 pub mod net;
 pub mod settings;
 pub mod state;
+pub mod synchronization;
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join, prelude::*};
 use tonic::transport::{Error as TonicError, Server};
 
 use crate::{
-    bitcoin::{
-        block_processing::*,
-        client::{BitcoinClient, BitcoinError},
-    },
+    bitcoin::client::BitcoinClient,
     net::{
         transaction::{model::server::TransactionServer, TransactionService},
         utility::{model::server::UtilityServer, UtilityService},
@@ -25,6 +23,7 @@ use crate::{
 };
 use db::Database;
 use state::StateMananger;
+use synchronization::{synchronize, SyncingError};
 
 lazy_static! {
     // Declare APP and get matches
@@ -69,49 +68,6 @@ lazy_static! {
 
     // Init state manager
     static ref STATE_MANAGER: StateMananger = StateMananger::default();
-}
-
-#[derive(Debug)]
-enum SyncingError {
-    Chaintip(BitcoinError),
-    BlockProcessing(BlockProcessingError),
-}
-
-impl From<BlockProcessingError> for SyncingError {
-    fn from(err: BlockProcessingError) -> Self {
-        SyncingError::BlockProcessing(err)
-    }
-}
-
-async fn synchronize(bitcoin_client: BitcoinClient, db: Database) -> Result<(), SyncingError> {
-    info!("starting synchronization...");
-
-    // Get current chain height
-    let block_count = bitcoin_client
-        .block_count()
-        .map_err(SyncingError::Chaintip)
-        .await?;
-
-    info!("current chain height: {}", block_count);
-
-    // Get oldest valid block
-    // TODO: Scan database for this
-    let earliest_valid_height: u32 = 0;
-    info!("earliest valid height: {}...", earliest_valid_height);
-
-    let raw_block_stream = bitcoin_client.raw_block_stream(earliest_valid_height, block_count);
-
-    // Begin processing blocks
-    info!(
-        "processing blocks {} to {}...",
-        earliest_valid_height, block_count
-    );
-    let result = par_process_block_stream(raw_block_stream, db)
-        .map_err(SyncingError::BlockProcessing)
-        .await?;
-
-    info!("completed synchronization");
-    Ok(result)
 }
 
 #[derive(Debug)]

@@ -34,6 +34,7 @@ impl From<ConsensusError> for BlockProcessingError {
 pub async fn par_process_block_stream(
     raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + Send,
     db: Database,
+    block_callback: &dyn Fn(u32),
 ) -> Result<(), BlockProcessingError> {
     // Split stream into chunks
     let block_stream = raw_block_stream.chunks(BLOCK_CHUNK_SIZE).map(
@@ -68,9 +69,9 @@ pub async fn par_process_block_stream(
                 res_vec
                     .into_iter()
                     .map(move |(block_height, block): (u32, Block)| {
-                        if block_height % 1_000 == 0 {
-                            info!("processed block {}", block_height);
-                        }
+                        // Do some action dependending on block height
+                        block_callback(block_height);
+
                         // Process transactions
                         let txs = block.txdata;
                         process_transactions(block_height, txs, db_inner.clone())
