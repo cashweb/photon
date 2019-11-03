@@ -318,7 +318,9 @@ def main():
 
     parser = argparse.ArgumentParser(prog="client.py", description="Test Photon Python Client")
     parser.add_argument('host', nargs='?', help='host:port to connect to')
-    parser.add_argument('-t', nargs=1, metavar='file', help="Transaction file to read for the transaction.Transaction test")
+    parser.add_argument('-t', nargs=1, metavar='file', help="Transaction file to read for the transaction.Transaction test; default to use an internal list")
+    parser.add_argument('-l', nargs=1, type=int, metavar='limit', help="Limit the number of transaction.Transaction requests to spam to this value; default 0 (unlimited)")
+    parser.add_argument('-q', action='store_true', help="If specified, turn off some of the verbose protocol trace printing; default is to show the verbose trace")
 
     args = parser.parse_args()
 
@@ -329,18 +331,20 @@ def main():
         del _host, _port
     except:
         if args.host:
-            print("Failed to parse host:port")
+            print("Failed to parse host:port\n")
             parser.print_help()
             sys.exit(1)
         print(f"Note: Will connect to default {host}:{port}, specify a HOST:PORT on the command-line to override.")
     else:
         print(f"Command-line host:port specified: \"{host}:{port}\"")
 
+    limit = (args.l and args.l[0]) or 0
     txns = []
     if args.t:
         fn = args.t[0]
         print(f"Reading transaction id's from '{fn}' ...")
         line_ctr = 0
+        len_ctr = 0
         try:
             with open(fn, "rt") as f:
                 for line in f:
@@ -348,6 +352,9 @@ def main():
                     line_ctr += 1
                     assert(len(txid) == 64), "TXID must be 32 bytes"
                     txns.append(txid)
+                    len_ctr += 1
+                    if limit and len_ctr >= limit:
+                        break
         except OSError as e:
             print(f"File error on '{fn}': {e}")
             sys.exit(1)
@@ -356,9 +363,13 @@ def main():
             sys.exit(1)
         else:
             print(f"Read {len(txns)} txid's from file")
+    elif args.l:
+        print("-l option cannot be specified without the -t option!\n")
+        parser.print_help()
+        sys.exit(1)
 
 
-    c = Client(host, port, logger=print, dont_raise_on_error=True, trace=True)
+    c = Client(host, port, logger=print, dont_raise_on_error=True, trace=not args.q)
     print(repr(threading.current_thread()))
     c.start()
     c.Version_Sync("Photon PyClient", "0.1.0")
@@ -397,10 +408,6 @@ def test_txns(c: Client, *, txns=None):
              'b33ff00db33f00d00000000000000000000000000000000000000000deadb33f',  # <-- invalid txid (should always throw NOT FOUND)
             ]
     )
-
-    limit = 0  # play with this to control how much you spam the server
-    if limit and len(txns) > limit:
-        txns = txns[:limit]
 
     #tests = { 'synch', 'asynch' }
     tests = { 'asynch' }
