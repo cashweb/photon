@@ -398,7 +398,7 @@ def test_txns(c: Client, *, txns=None):
             ]
     )
 
-    limit = 10000  # play with this to control how much you spam the server
+    limit = 0  # play with this to control how much you spam the server
     if limit and len(txns) > limit:
         txns = txns[:limit]
 
