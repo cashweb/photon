@@ -113,7 +113,7 @@ class Client:
             return False
         if self.loop.is_running():
             self.logger("Stopping loop...")
-            for task in asyncio.Task.all_tasks(self.loop):
+            for task in list(asyncio.Task.all_tasks(self.loop)):
                 task.cancel()
             self.loop.call_soon_threadsafe(self.loop.stop)
         if self.thr.is_alive():
