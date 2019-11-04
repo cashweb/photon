@@ -584,34 +584,31 @@ def test_hdr(c: Client, args: argparse.Namespace):
     if exhost and export:
         verb = False#not args.q
         print(f"EX Check: Connecting to EX server at {exhost}:{export} TCP ...")
-        sock = socket.create_connection((exhost, export), timeout=10.0)
-        def sndrecv(_id, method, params=None):
-            outj = { "id" : _id, "jsonrpc" : "2.0", "method" : method, "params": params or [] }
-            msg = json.dumps(outj, indent=None).encode("utf8") + b'\n'
-            if verb: print(f"EX --> {msg}")
-            sock.send(msg)
-            resp = sock.recv(16384)
-            if verb: print(f"EX <-- {resp}")
-            j = json.loads(resp.decode("utf8").strip())
-            if not j.get("result") or j.get("id") != _id:
-                raise RuntimeError("Error from EX:" + str(j.get("error") or j))
-            return j.get("result")
-        ver = sndrecv("ver", "server.version", ["PhotonPyClient", "1.4"])
-        print(f"EX Check: Connected ok to EX version:", ver)
-        ok, mismatch, total = 0, 0, 0
-        t0 = time.time()
-        for height, h in enumerate(hdrs, start=args.start):
-            exhdr = sndrecv(height, "blockchain.block.header", [height])
-            if bytes.fromhex(exhdr) != h:
-                print(f"EX Check: mismatch at height {height}. EX said: {exhdr[:20]}…, we have: {h.hex()[:20]}…")
-                mismatch += 1
-            else:
-                print(f"EX Check: block {height} checked ok")
-                ok += 1
-            total += 1
-        sock.shutdown(socket.SHUT_RDWR)
-        sock.close()
-        del sock
+        with socket.create_connection((exhost, export), timeout=10.0) as sock:
+            def sndrecv(_id, method, params=None):
+                outj = { "id" : _id, "jsonrpc" : "2.0", "method" : method, "params": params or [] }
+                msg = json.dumps(outj, indent=None).encode("utf8") + b'\n'
+                if verb: print(f"EX --> {msg}")
+                sock.send(msg)
+                resp = sock.recv(16384)
+                if verb: print(f"EX <-- {resp}")
+                j = json.loads(resp.decode("utf8").strip())
+                if not j.get("result") or j.get("id") != _id:
+                    raise RuntimeError("Error from EX:" + str(j.get("error") or j))
+                return j.get("result")
+            ver = sndrecv("ver", "server.version", ["PhotonPyClient", "1.4"])
+            print(f"EX Check: Connected ok to EX version:", ver)
+            ok, mismatch, total = 0, 0, 0
+            t0 = time.time()
+            for height, h in enumerate(hdrs, start=args.start):
+                exhdr = sndrecv(height, "blockchain.block.header", [height])
+                if bytes.fromhex(exhdr) != h:
+                    print(f"EX Check: mismatch at height {height}. EX said: {exhdr[:20]}…, we have: {h.hex()[:20]}…")
+                    mismatch += 1
+                else:
+                    print(f"EX Check: height {height} checked ok")
+                    ok += 1
+                total += 1
 
         print(f"EX Check: checked {total} headers in {time.time()-t0:.3f} secs. ok: {ok}  mismatch: {mismatch}")
 
