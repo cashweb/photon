@@ -15,7 +15,7 @@ import sys
 import threading
 import time
 
-from typing import Any, Callable, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 from grpclib.client import Channel
 from grpclib.exceptions import GRPCError, StreamTerminatedError, ProtocolError
@@ -347,6 +347,8 @@ class Client:
 # Stuff for testing below
 
 import argparse
+import json
+import socket
 
 def main():
 
@@ -370,23 +372,21 @@ def main():
     hdr_parser.add_argument("start", type=int, nargs='?', default=0, metavar="start_height", help="The start height from which to begin the header download. 0 for the beginning of time. Defaults to 0.")
     hdr_parser.add_argument("count", type=int, nargs='?', default=0, metavar="count", help="The number of headers to download starting at the start height, or 0 for all up until present. Defaults to 0.")
     hdr_parser.add_argument("-p", action="store_true", help="If specified, print the headers retrieved as hex bytes, one header per line.")
+    hdr_parser.add_argument("--exchk", metavar="host_port", help="If specified, after the results come in, connect to an ElectrumX/ElectronX server on host:port (TCP only, no SSL, sorry!) to verify the headers retrieved match up with a real blockchain.")
     del exgrp
 
     args = parser.parse_args()
 
-    try:
-        _host, _port = args.host.rsplit(':', 1)
-        _port = int(_port)
-        host, port = _host, _port
-        del _host, _port
-    except:
-        if args.host:
+    if args.host:
+        try:
+            host, port = parse_host_port(args.host)
+        except:
             print("Failed to parse host:port\n")
             parser.print_help()
             sys.exit(1)
-        print(f"Note: Will connect to default {host}:{port}{' (SSL)' if args.ssl else ''}, specify a HOST:PORT on the command-line to override.")
-    else:
-        print(f"Command-line host:port specified: {host}:{port}{' (SSL)' if args.ssl else ''}")
+        else:
+            print(f"Command-line host:port specified: {host}:{port}{' (SSL)' if args.ssl else ''}")
+
 
     test = args.test
     if args.test is None:
@@ -556,8 +556,16 @@ def test_hdr(c: Client, args: argparse.Namespace):
     if args.start < 0 or args.count < 0:
         sys.exit("\nhdr: start_height or count may not be negative!\n")
 
+    exhost, export = None, None
+    if args.exchk:
+        try:
+            exhost, export = parse_host_port(args.exchk)
+        except:
+            sys.exit(f"Failed to parse EX server host:port: {args.exchk}!\n")
+
     t0 = time.time()
-    d = c.Headers_Sync(args.start, args.count, trace=False)
+    d = c.Headers_Sync(args.start, args.count, trace=False, timeout=30.0)
+    elapsed = time.time()-t0
     assert d, "Empty results"
     hdrs = d['headers']
     good = [ len(h) == 80 for h in hdrs ]
@@ -568,11 +576,55 @@ def test_hdr(c: Client, args: argparse.Namespace):
     status = "ok"
     if args.count != 0 and num != args.count:
         status = f"error, expected {args.count} headers!"
-    print(f"Got {num} headers in {time.time()-t0} secs, {status}")
+    print(f"Got {num} headers in {elapsed:0.3f} secs, {status}")
     if args.p and status == "ok":
         for height, h in enumerate(hdrs, start=args.start):
-            print(height, h.hex())
+            print(height, h.hex(), file=sys.stderr)
 
+    if exhost and export:
+        verb = False#not args.q
+        print(f"EX Check: Connecting to EX server at {exhost}:{export} TCP ...")
+        sock = socket.create_connection((exhost, export), timeout=10.0)
+        def sndrecv(_id, method, params=None):
+            outj = { "id" : _id, "jsonrpc" : "2.0", "method" : method, "params": params or [] }
+            msg = json.dumps(outj, indent=None).encode("utf8") + b'\n'
+            if verb: print(f"EX --> {msg}")
+            sock.send(msg)
+            resp = sock.recv(16384)
+            if verb: print(f"EX <-- {resp}")
+            j = json.loads(resp.decode("utf8").strip())
+            if not j.get("result") or j.get("id") != _id:
+                raise RuntimeError("Error from EX:" + str(j.get("error") or j))
+            return j.get("result")
+        ver = sndrecv("ver", "server.version", ["PhotonPyClient", "1.4"])
+        print(f"EX Check: Connected ok to EX version:", ver)
+        ok, mismatch, total = 0, 0, 0
+        t0 = time.time()
+        for height, h in enumerate(hdrs, start=args.start):
+            exhdr = sndrecv(height, "blockchain.block.header", [height])
+            if bytes.fromhex(exhdr) != h:
+                print(f"EX Check: mismatch at height {height}. EX said: {exhdr[:20]}…, we have: {h.hex()[:20]}…")
+                mismatch += 1
+            else:
+                print(f"EX Check: block {height} checked ok")
+                ok += 1
+            total += 1
+        sock.shutdown(socket.SHUT_RDWR)
+        sock.close()
+        del sock
+
+        print(f"EX Check: checked {total} headers in {time.time()-t0:.3f} secs. ok: {ok}  mismatch: {mismatch}")
+
+
+
+def parse_host_port(hostport: str)-> Optional[Tuple[str, int]]:
+    try:
+        host, port = hostport.rsplit(':', 1)
+        port = int(port)
+        assert port and host
+        return host, port
+    except:
+        return
 
 
 if __name__ == "__main__":
