@@ -17,6 +17,7 @@ pub enum BlockProcessingError {
     BlockDecoding(ConsensusError),
     Transaction(TxProcessingError),
     Database(RocksError),
+    Subscription(bitcoin_zmq::SubscriptionError),
 }
 
 impl From<TxProcessingError> for BlockProcessingError {
@@ -43,6 +44,12 @@ impl From<BitcoinError> for BlockProcessingError {
     }
 }
 
+impl From<bitcoin_zmq::SubscriptionError> for BlockProcessingError {
+    fn from(err: bitcoin_zmq::SubscriptionError) -> Self {
+        BlockProcessingError::Subscription(err)
+    }
+}
+
 pub async fn process_block(
     height: u32,
     block: Block,
@@ -54,16 +61,18 @@ pub async fn process_block(
     block.header.consensus_encode(&mut raw_header[..]).unwrap();
     db.put_header(height, &raw_header)?;
 
+    // Process transactions
+    let txs = block.txdata;
+    let process_tx = process_transactions(height, txs, db).await?;
+
     // Do some action dependending on block height
     block_callback(height)?;
 
-    // Process transactions
-    let txs = block.txdata;
-    Ok(process_transactions(height, txs, db).await?)
+    Ok(())
 }
 
-pub async fn par_process_block_stream(
-    raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + Send,
+pub async fn par_process_block_stream<E: Into<BlockProcessingError>>(
+    raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), E>> + Send,
     db: Database,
     block_callback: &dyn Fn(u32) -> Result<(), BlockProcessingError>,
 ) -> Result<(), BlockProcessingError> {

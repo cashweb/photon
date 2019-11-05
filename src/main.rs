@@ -11,7 +11,7 @@ pub mod state;
 pub mod synchronization;
 
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future::try_join, prelude::*};
+use futures::{future::try_join3, prelude::*};
 use tonic::transport::{Error as TonicError, Server};
 
 use crate::{
@@ -101,7 +101,7 @@ enum AppError {
     Syncing(SyncingError),
     ServerError(TonicError),
     MistypedCLI(String),
-    ZMQError(bitcoin_zmq::SubscriptionError),
+    Handler(net::zmq::HandlerError),
 }
 
 #[tokio::main]
@@ -126,22 +126,19 @@ async fn main() -> Result<(), AppError> {
         SETTINGS.bitcoin_password.clone(),
     );
 
-    // Start ZMQ handler
-    zmq::handle_zmq(
-        &format!(
-            "tcp://{}:{}",
-            SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_block_port
-        ),
-        &format!(
-            "tcp://{}:{}",
-            SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
-        ),
-    )
-    .await
-    .map_err(AppError::ZMQError)?;
-
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
+
+    // Construct ZMQ handler
+    let zmq_tx_addr = &format!(
+        "tcp://{}:{}",
+        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_block_port
+    );
+    let block_tx_addr = &format!(
+        "tcp://{}:{}",
+        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
+    );
+    let handler = zmq::handle_zmq(zmq_tx_addr, block_tx_addr, db.clone());
 
     let sync_opt = if let Some(arg) = CLI_ARGS.value_of("sync-from") {
         if let Ok(from) = arg.parse::<u32>() {
@@ -181,9 +178,10 @@ async fn main() -> Result<(), AppError> {
         .add_service(transaction_svc)
         .serve(addr);
 
-    try_join(
+    try_join3(
         server.map_err(AppError::ServerError),
         sync.map_err(AppError::Syncing),
+        handler.map_err(AppError::Handler),
     )
     .await?;
 

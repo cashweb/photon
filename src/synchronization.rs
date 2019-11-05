@@ -39,7 +39,7 @@ pub async fn synchronize(
         .map_err(SyncingError::Chaintip)
         .await?;
 
-    info!("current chain height: {}", block_count);
+    info!("current chain length: {}", block_count);
 
     // Get oldest valid block
     let last_sync_position: u32 = match resync {
@@ -82,7 +82,7 @@ pub async fn synchronize(
         // Cache result periodically
         if position % PERSIST_SYNC_POS_INTERVAL == 0 {
             trace!("stored sync position {}", position);
-            db_inner.set_sync_position(position)?;
+            db_inner.set_sync_position(position + 1)?;
         }
         Ok(())
     };

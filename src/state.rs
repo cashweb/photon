@@ -28,6 +28,7 @@ pub struct StateMananger {
     /// Stores the number of active requests
     active_counter: CachePadded<AtomicUsize>,
     /// Stores the current sync position
+    /// 1 + the last block height sync'd
     sync_position: CachePadded<AtomicU32>,
 }
 
@@ -70,7 +71,7 @@ impl StateMananger {
             State::Syncing => Some(self.new_resume_channel()),
             State::Active => {
                 // Increment active request counter
-                self.active_counter.fetch_add(1, Ordering::Relaxed);
+                self.active_counter.fetch_add(1, Ordering::SeqCst);
                 None
             }
             State::ReOrgPending => Some(self.new_resume_channel()),
@@ -83,10 +84,10 @@ impl StateMananger {
         let state_read = self.state.read().unwrap();
         match *state_read {
             State::Active => {
-                self.active_counter.fetch_sub(1, Ordering::Relaxed);
+                self.active_counter.fetch_sub(1, Ordering::SeqCst);
             }
             State::ReOrgPending => {
-                let active_count = self.active_counter.fetch_sub(1, Ordering::Relaxed);
+                let active_count = self.active_counter.fetch_sub(1, Ordering::SeqCst);
                 drop(state_read);
 
                 // When active count gets to 0 then transition to reorganisation state
@@ -120,12 +121,12 @@ impl StateMananger {
 
     /// Increment sync position
     pub fn increment_sync_position(&self) -> u32 {
-        self.sync_position.fetch_add(1, Ordering::Release)
+        self.sync_position.fetch_add(1, Ordering::SeqCst)
     }
 
     /// Sync position
     pub fn set_sync_position(&self, position: u32) {
-        self.sync_position.store(position, Ordering::Release);
+        self.sync_position.store(position, Ordering::SeqCst);
     }
 
     /// Get sync position
