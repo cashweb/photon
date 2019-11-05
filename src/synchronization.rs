@@ -60,7 +60,6 @@ pub async fn synchronize(
         info!("already up-to-date");
         return Ok(());
     }
-    info!("last sync position: {}...", last_sync_position);
 
     // TODO: Validate from this position?
 
