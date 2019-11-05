@@ -10,7 +10,6 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
-use bitcoin_zmq::ZMQListener;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join, prelude::*};
 use tonic::transport::{Error as TonicError, Server};
@@ -21,6 +20,7 @@ use crate::{
         header::{model::server::HeaderServer, HeaderService},
         transaction::{model::server::TransactionServer, TransactionService},
         utility::{model::server::UtilityServer, UtilityService},
+        zmq,
     },
 };
 use db::Database;
@@ -41,9 +41,13 @@ lazy_static! {
             .long("bitcoin-rpc-port")
             .help("Sets the Bitcoin RPC port")
             .takes_value(true))
-        .arg(Arg::with_name("bitcoin-zmq-port")
-            .long("bitcoin-zmq-port")
-            .help("Sets the Bitcoin ZMQ port")
+        .arg(Arg::with_name("bitcoin-zmq-tx-port")
+            .long("bitcoin-zmq-tx-port")
+            .help("Sets the Bitcoin ZMQ transaction port")
+            .takes_value(true))
+        .arg(Arg::with_name("bitcoin-zmq-block-port")
+            .long("bitcoin-zmq-block-port")
+            .help("Sets the Bitcoin ZMQ block port")
             .takes_value(true))
         .arg(Arg::with_name("bitcoin-tls")
             .long("bitcoin-tls")
@@ -97,6 +101,7 @@ enum AppError {
     Syncing(SyncingError),
     ServerError(TonicError),
     MistypedCLI(String),
+    ZMQError(bitcoin_zmq::SubscriptionError),
 }
 
 #[tokio::main]
@@ -121,8 +126,19 @@ async fn main() -> Result<(), AppError> {
         SETTINGS.bitcoin_password.clone(),
     );
 
-    // Setup ZMQ listener
-    // let listener = ZMQListener
+    // Start ZMQ handler
+    zmq::handle_zmq(
+        &format!(
+            "tcp://{}:{}",
+            SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_block_port
+        ),
+        &format!(
+            "tcp://{}:{}",
+            SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
+        ),
+    )
+    .await
+    .map_err(AppError::ZMQError)?;
 
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
