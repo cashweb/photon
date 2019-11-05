@@ -5,9 +5,9 @@ pub mod model {
 use std::{convert::TryInto, sync::Arc};
 
 use prost::Message;
-use rocksdb::{DBRawIterator, Error, Options, DB};
+use rocksdb::{Direction, Error, IteratorMode, Options, DB};
 
-use crate::{net::transaction::model::TransactionResponse, STATE_MANAGER};
+use crate::net::transaction::model::TransactionResponse;
 
 // Values larger than 32 will cause panics
 const TX_ID_PREFIX_LEN: usize = 8;
@@ -56,7 +56,7 @@ impl Database {
         self.0.get(&key).map(|opt| opt.map(|some| some.to_vec()))
     }
 
-    pub fn get_headers(&self, start_height: u32, mut count: u32) -> Result<Vec<Vec<u8>>, Error> {
+    pub fn get_headers(&self, start_height: u32, count: u32) -> Result<Vec<Vec<u8>>, Error> {
         if count == 1 {
             return self.get_header(start_height).map(|opt| match opt {
                 Some(some) => vec![some],
@@ -73,29 +73,19 @@ impl Database {
         }
 
         // Init iterator
-        let mut iter: DBRawIterator = self.0.prefix_iterator([b'h']).into();
-        iter.seek(start_key);
+        let iter = self
+            .0
+            .iterator(IteratorMode::From(&start_key, Direction::Forward));
 
-        let headers = if count == 0 {
-            // If count is 0 then iterate until end of the prefix space
-            let mut headers_inner = Vec::with_capacity(STATE_MANAGER.sync_position() as usize);
-
-            while iter.valid() {
-                headers_inner.push(iter.value().unwrap()); // TODO: Is this unwrap safe?
-                iter.next();
-            }
-
-            headers_inner
+        let headers: Vec<Vec<u8>> = if count == 0 {
+            iter.take_while(|(key, _)| key[0] == b'h')
+                .map(|(_, header)| header.to_vec())
+                .collect()
         } else {
-            let mut headers_inner = Vec::with_capacity(count as usize);
-
-            while iter.valid() && count != 0 {
-                headers_inner.push(iter.value().unwrap()); // TODO: Is this unwrap safe?
-                iter.next();
-                count -= 1;
-            }
-
-            headers_inner
+            iter.take_while(|(key, _)| key[0] == b'h')
+                .take(count as usize)
+                .map(|(_, header)| header.to_vec())
+                .collect()
         };
 
         Ok(headers)

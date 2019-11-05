@@ -3,7 +3,7 @@ use bitcoin::{
     consensus::encode::{Decodable, Encodable},
     Block,
 };
-use futures::{future::join_all, prelude::*};
+use futures::prelude::*;
 use rocksdb::Error as RocksError;
 
 use super::{client::*, tx_processing::*};

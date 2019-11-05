@@ -10,7 +10,7 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
-use clap::{crate_authors, crate_description, crate_version, value_t, App, Arg, ArgMatches};
+use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join, prelude::*};
 use tonic::transport::{Error as TonicError, Server};
 
