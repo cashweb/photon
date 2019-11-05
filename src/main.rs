@@ -10,7 +10,7 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
-use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
+use clap::{crate_authors, crate_description, crate_version, value_t, App, Arg, ArgMatches};
 use futures::{future::try_join, prelude::*};
 use tonic::transport::{Error as TonicError, Server};
 
@@ -63,8 +63,14 @@ lazy_static! {
             .help("Sets donation address")
             .takes_value(true))
         .arg(Arg::with_name("resync")
+            .short("r")
             .long("resync")
             .help("Resynchronise the server from scratch"))
+        .arg(Arg::with_name("sync-from")
+            .long("sync-from")
+            .help("Resynchronise the server from given height")
+            .takes_value(true)
+            .conflicts_with("resync"))
         .get_matches();
 
     // Fetch settings
@@ -78,6 +84,7 @@ lazy_static! {
 enum AppError {
     Syncing(SyncingError),
     ServerError(TonicError),
+    MistypedCLI(String),
 }
 
 #[tokio::main]
@@ -95,10 +102,20 @@ async fn main() -> Result<(), AppError> {
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
 
-    let sync_opt = if CLI_ARGS.is_present("resync") {
-        Some(0)
+    let sync_opt = if let Some(arg) = CLI_ARGS.value_of("sync-from") {
+        if let Ok(from) = arg.parse::<u32>() {
+            Some(from)
+        } else {
+            return Err(AppError::MistypedCLI(
+                "`sync-from` must be an unsigned 32-bit integer".to_string(),
+            ));
+        }
     } else {
-        None
+        if CLI_ARGS.is_present("resync") {
+            Some(0)
+        } else {
+            None
+        }
     };
     let sync = synchronize(bitcoin_client.clone(), db.clone(), sync_opt);
 
