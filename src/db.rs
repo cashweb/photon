@@ -34,7 +34,7 @@ impl Database {
 
     pub fn put_header(&self, height: u32, header: &[u8]) -> Result<(), Error> {
         // Prefix key
-        let raw_height: [u8; 4] = height.to_le_bytes();
+        let raw_height: [u8; 4] = height.to_be_bytes();
         let mut key: [u8; 4 + 1] = [0; 4 + 1];
         key[0] = b'h';
         for i in 0..4 {
@@ -46,7 +46,7 @@ impl Database {
 
     pub fn get_header(&self, height: u32) -> Result<Option<Vec<u8>>, Error> {
         // Prefix key
-        let raw_height: [u8; 4] = height.to_le_bytes();
+        let raw_height: [u8; 4] = height.to_be_bytes();
         let mut key: [u8; 4 + 1] = [0; 4 + 1];
         key[0] = b'h';
         for i in 0..4 {
@@ -65,7 +65,7 @@ impl Database {
         }
 
         // Prefix key
-        let raw_start_height: [u8; 4] = start_height.to_le_bytes();
+        let raw_start_height: [u8; 4] = start_height.to_be_bytes();
         let mut start_key: [u8; 4 + 1] = [0; 4 + 1];
         start_key[0] = b'h';
         for i in 0..4 {
