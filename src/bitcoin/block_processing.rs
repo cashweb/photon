@@ -13,7 +13,7 @@ const BLOCK_CHUNK_SIZE: usize = 128;
 
 #[derive(Debug)]
 pub enum BlockProcessingError {
-    BlockDecode(BitcoinError),
+    Bitcoin(BitcoinError),
     BlockDecoding(ConsensusError),
     Transaction(TxProcessingError),
     Database(RocksError),
@@ -34,6 +34,12 @@ impl From<ConsensusError> for BlockProcessingError {
 impl From<RocksError> for BlockProcessingError {
     fn from(err: RocksError) -> Self {
         BlockProcessingError::Database(err)
+    }
+}
+
+impl From<BitcoinError> for BlockProcessingError {
+    fn from(err: BitcoinError) -> Self {
+        BlockProcessingError::Bitcoin(err)
     }
 }
 
@@ -62,46 +68,21 @@ pub async fn par_process_block_stream(
     block_callback: &dyn Fn(u32) -> Result<(), BlockProcessingError>,
 ) -> Result<(), BlockProcessingError> {
     // Split stream into chunks
-    let block_stream = raw_block_stream.chunks(BLOCK_CHUNK_SIZE).map(
-        // Convert Vec<Result<_, _> into Result<Vec<_>, _>
-        // TODO: This could very well be a bottleneck here
-        // Reevaluate this later
-        move |result_vector: Vec<Result<(u32, Vec<u8>), BitcoinError>>| {
-            result_vector
-                .into_iter()
-                .fold(Ok(vec![]), move |mut output_res, result| {
-                    let (height, raw_block) = match result {
-                        Ok(ok) => ok,
-                        Err(err) => {
-                            warn!("failed to fetch block {:?}", err);
-                            return Err(BlockProcessingError::BlockDecode(err));
-                        }
-                    };
-                    let block = Block::consensus_decode(&raw_block[..])?;
-                    output_res
-                        .as_mut()
-                        .map(|output| output.push((height, block)));
-                    output_res
-                })
+    let block_stream = raw_block_stream
+        .err_into::<BlockProcessingError>()
+        .and_then(|(height, raw_block): (u32, Vec<u8>)| {
+            async move {
+                let block = Block::consensus_decode(&raw_block[..])?;
+                Ok((height, block))
+            }
+        });
+
+    let processing = block_stream.try_for_each_concurrent(
+        BLOCK_CHUNK_SIZE,
+        move |(height, block): (u32, Block)| {
+            let db_inner = db.clone();
+            process_block(height, block, db_inner, block_callback)
         },
     );
-
-    // TODO: Reevaluate this later
-    let processing =
-        block_stream.try_for_each_concurrent(256, move |res_vec: Vec<(u32, Block)>| {
-            let db_inner = db.clone();
-            let chunked_iter =
-                res_vec
-                    .into_iter()
-                    .map(move |(block_height, block): (u32, Block)| {
-                        let db_inner = db_inner.clone();
-                        process_block(block_height, block, db_inner, block_callback)
-                    });
-            join_all(chunked_iter).map(|result| {
-                result
-                    .into_iter()
-                    .collect::<Result<_, BlockProcessingError>>()
-            })
-        });
     processing.await
 }
