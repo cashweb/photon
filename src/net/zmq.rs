@@ -42,11 +42,14 @@ pub async fn handle_zmq(block_addr: &str, tx_addr: &str, db: Database) -> Result
         db_inner.set_sync_position(position + 1)?;
         Ok(())
     };
-    let paired_block_stream = block_listener.stream().map_ok(|raw_block| {
+    let paired_raw_block_stream = block_listener.stream().map_ok(|raw_block| {
         let height = STATE_MANAGER.sync_position();
         (height, raw_block)
     });
-    let block_handler = par_process_block_stream(paired_block_stream, db, &block_callback)
+
+    let paired_block_stream = decode_block_stream(paired_raw_block_stream);
+
+    let block_handler = process_block_stream(paired_block_stream, db, &block_callback)
         .map_err(|err| HandlerError::Block(err));
     Ok(future::try_join(tx_handler, block_handler)
         .map(|_| ())

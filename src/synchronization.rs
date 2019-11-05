@@ -87,7 +87,9 @@ pub async fn synchronize(
         Ok(())
     };
 
-    par_process_block_stream(raw_block_stream, db, &block_callback)
+    let block_stream = decode_block_stream(raw_block_stream);
+
+    process_block_stream(block_stream, db, &block_callback)
         .map_err(SyncingError::BlockProcessing)
         .await?;
 

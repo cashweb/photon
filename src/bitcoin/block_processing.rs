@@ -71,27 +71,29 @@ pub async fn process_block(
     Ok(())
 }
 
-pub async fn par_process_block_stream<E: Into<BlockProcessingError>>(
+pub fn decode_block_stream<E: Into<BlockProcessingError>>(
     raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), E>> + Send,
-    db: Database,
-    block_callback: &dyn Fn(u32) -> Result<(), BlockProcessingError>,
-) -> Result<(), BlockProcessingError> {
-    // Split stream into chunks
-    let block_stream = raw_block_stream
+) -> impl Stream<Item = Result<(u32, Block), BlockProcessingError>> + Send {
+    raw_block_stream
         .err_into::<BlockProcessingError>()
         .and_then(|(height, raw_block): (u32, Vec<u8>)| {
             async move {
                 let block = Block::consensus_decode(&raw_block[..])?;
                 Ok((height, block))
             }
-        });
+        })
+}
 
-    let processing = block_stream.try_for_each_concurrent(
-        BLOCK_CHUNK_SIZE,
-        move |(height, block): (u32, Block)| {
+pub async fn process_block_stream<E: Into<BlockProcessingError>>(
+    block_stream: impl Stream<Item = Result<(u32, Block), E>> + Send,
+    db: Database,
+    block_callback: &dyn Fn(u32) -> Result<(), BlockProcessingError>,
+) -> Result<(), BlockProcessingError> {
+    let processing = block_stream
+        .err_into::<BlockProcessingError>()
+        .try_for_each_concurrent(BLOCK_CHUNK_SIZE, move |(height, block): (u32, Block)| {
             let db_inner = db.clone();
             process_block(height, block, db_inner, block_callback)
-        },
-    );
+        });
     processing.await
 }
