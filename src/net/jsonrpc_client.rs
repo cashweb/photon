@@ -17,14 +17,12 @@ pub enum ClientError {
     NonceMismatch,
     /// No content type
     MissingContentType,
-    /// Received no header
+    /// Received 500
     WorkQueueFull,
-    /// Received text/html; charset=ISO-8859-1
-    IncorrectCredentials,
-    /// Received unexpected header
-    Unexpected(http::HeaderValue),
-    /// Unexpected text error
-    UnexpectedText(String),
+    /// Received 401
+    Unauthorized,
+    /// Unexpected status code
+    UnexpectedCode(u16),
 }
 
 impl From<serde_json::Error> for ClientError {
@@ -100,19 +98,13 @@ impl JsonClient {
                 if some == json_header {
                     return Ok(());
                 }
-                // text/html indicates invalid credentials
-                let html_header =
-                    http::header::HeaderValue::from_str("text/html; charset=ISO-8859-1").unwrap();
-                if some == &html_header {
-                    return Err(ClientError::IncorrectCredentials);
-                }
 
                 // status code 500 indicates a worker overflow
-                if response.status() == 500 {
-                    return Err(ClientError::WorkQueueFull);
+                match response.status().as_u16() {
+                    500 => return Err(ClientError::WorkQueueFull),
+                    401 => return Err(ClientError::Unauthorized),
+                    x => return Err(ClientError::UnexpectedCode(x)),
                 }
-
-                Err(ClientError::Unexpected(some.clone()))
             }
         }
     }
