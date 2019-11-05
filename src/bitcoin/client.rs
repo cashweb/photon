@@ -1,4 +1,9 @@
-use futures::prelude::*;
+use std::pin::Pin;
+
+use futures::{
+    channel::{mpsc, oneshot},
+    prelude::*,
+};
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
@@ -35,6 +40,40 @@ pub struct ChainTipStatus {
 pub struct ChainTip {
     pub height: u32,
     pub hash: Vec<u8>,
+}
+
+type QueueItem = Pin<Box<dyn Future<Output = Result<Response, ClientError>> + Send + 'static>>;
+type CallbackSender = oneshot::Sender<Result<Response, ClientError>>;
+
+#[derive(Clone)]
+pub struct RequestQueue {
+    sender: mpsc::Sender<(QueueItem, oneshot::Sender<Result<Response, ClientError>>)>,
+}
+
+impl RequestQueue {
+    /// Create a active request queue with given capacity
+    pub async fn with_capacity(capacity: usize) -> Self {
+        // Construct request queue
+        let (sender, recv) = mpsc::channel::<(QueueItem, CallbackSender)>(capacity);
+
+        // Pop from queue and send result through callback oneshot
+        let broker =
+            recv.for_each(|(request, callback)| async { callback.send(request.await).unwrap() });
+        tokio::spawn(broker);
+
+        RequestQueue { sender }
+    }
+
+    /// Push an item to the request queue, awaits response
+    pub async fn push(
+        &self,
+        request: QueueItem,
+    ) -> Result<Result<Response, ClientError>, mpsc::TrySendError<(QueueItem, CallbackSender)>>
+    {
+        let (finish, callback) = oneshot::channel();
+        self.sender.clone().try_send((request, finish))?;
+        Ok(callback.await.unwrap())
+    }
 }
 
 #[derive(Clone)]
