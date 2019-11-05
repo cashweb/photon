@@ -4,16 +4,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, value::from_value, Value};
 
 #[derive(Debug)]
-pub enum HeaderError {
-    /// Received no header
-    WorkQueueFull,
-    /// Received text/html; charset=ISO-8859-1
-    IncorrectCredentials,
-    /// Received none of the above nor application/json
-    Unexpected(http::HeaderValue),
-}
-
-#[derive(Debug)]
 pub enum ClientError {
     /// Json decoding error.
     Json(serde_json::Error),
@@ -25,8 +15,16 @@ pub enum ClientError {
     NoErrorOrResult,
     /// Response to a request did not have the expected nonce
     NonceMismatch,
+    /// No content type
+    MissingContentType,
+    /// Received no header
+    WorkQueueFull,
+    /// Received text/html; charset=ISO-8859-1
+    IncorrectCredentials,
     /// Received unexpected header
-    Header(HeaderError),
+    Unexpected(http::HeaderValue),
+    /// Unexpected text error
+    UnexpectedText(String),
 }
 
 impl From<serde_json::Error> for ClientError {
@@ -38,12 +36,6 @@ impl From<serde_json::Error> for ClientError {
 impl From<reqwest::Error> for ClientError {
     fn from(e: reqwest::Error) -> Self {
         ClientError::Client(e)
-    }
-}
-
-impl From<HeaderError> for ClientError {
-    fn from(e: HeaderError) -> Self {
-        ClientError::Header(e)
     }
 }
 
@@ -98,21 +90,29 @@ impl JsonClient {
         }
     }
 
-    fn check_headers(response: &reqwest::Response) -> Result<(), HeaderError> {
-        match response.headers().get("content-type") {
-            None => return Err(HeaderError::WorkQueueFull),
+    fn check_misc_errors(response: &reqwest::Response) -> Result<(), ClientError> {
+        let header = response.clone().headers().get("content-type");
+        match header {
+            // No header indicates work queue full
+            None => return Err(ClientError::MissingContentType),
             Some(some) => {
                 let json_header = http::header::HeaderValue::from_str("application/json").unwrap();
                 if some == json_header {
                     return Ok(());
                 }
+                // text/html indicates invalid credentials
                 let html_header =
                     http::header::HeaderValue::from_str("text/html; charset=ISO-8859-1").unwrap();
                 if some == &html_header {
-                    return Err(HeaderError::IncorrectCredentials);
+                    return Err(ClientError::IncorrectCredentials);
                 }
 
-                return Err(HeaderError::Unexpected(some.clone()));
+                // status code 500 indicates a worker overflow
+                if response.status() == 500 {
+                    return Err(ClientError::WorkQueueFull);
+                }
+
+                Err(ClientError::Unexpected(some.clone()))
             }
         }
     }
@@ -131,7 +131,7 @@ impl JsonClient {
             .map_err(ClientError::from)?;
 
         // Check headers
-        JsonClient::check_headers(&response)?;
+        JsonClient::check_misc_errors(&response)?;
 
         // Parse response
         let json_response: Response = response.json().await?;
