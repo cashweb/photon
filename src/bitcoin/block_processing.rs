@@ -37,6 +37,25 @@ impl From<RocksError> for BlockProcessingError {
     }
 }
 
+pub async fn process_block(
+    height: u32,
+    block: Block,
+    db: Database,
+    block_callback: &dyn Fn(u32) -> Result<(), BlockProcessingError>,
+) -> Result<(), BlockProcessingError> {
+    // Process header
+    let mut raw_header: [u8; 80] = [0; 80];
+    block.header.consensus_encode(&mut raw_header[..]).unwrap();
+    db.put_header(height, &raw_header)?;
+
+    // Do some action dependending on block height
+    block_callback(height)?;
+
+    // Process transactions
+    let txs = block.txdata;
+    Ok(process_transactions(height, txs, db).await?)
+}
+
 pub async fn par_process_block_stream(
     raw_block_stream: impl Stream<Item = Result<(u32, Vec<u8>), BitcoinError>> + Send,
     db: Database,
@@ -76,19 +95,7 @@ pub async fn par_process_block_stream(
                     .into_iter()
                     .map(move |(block_height, block): (u32, Block)| {
                         let db_inner = db_inner.clone();
-                        async move {
-                            // Process header
-                            let mut raw_header: [u8; 80] = [0; 80];
-                            block.header.consensus_encode(&mut raw_header[..]).unwrap();
-                            db_inner.put_header(block_height, &raw_header)?;
-
-                            // Do some action dependending on block height
-                            block_callback(block_height)?;
-
-                            // Process transactions
-                            let txs = block.txdata;
-                            Ok(process_transactions(block_height, txs, db_inner.clone()).await?)
-                        }
+                        process_block(block_height, block, db_inner, block_callback)
                     });
             join_all(chunked_iter).map(|result| {
                 result
