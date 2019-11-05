@@ -55,6 +55,11 @@ pub async fn synchronize(
             Err(err) => return Err(SyncingError::LastSyncGet(err)),
         },
     };
+
+    if last_sync_position == block_count {
+        info!("already up-to-date");
+        return Ok(());
+    }
     info!("last sync position: {}...", last_sync_position);
 
     // TODO: Validate from this position?
@@ -83,7 +88,7 @@ pub async fn synchronize(
         Ok(())
     };
 
-    let result = par_process_block_stream(raw_block_stream, db, &block_callback)
+    par_process_block_stream(raw_block_stream, db, &block_callback)
         .map_err(SyncingError::BlockProcessing)
         .await?;
 
@@ -97,5 +102,5 @@ pub async fn synchronize(
     // TODO: Check that we've actually met the chaintip here
     // Perhaps just simply recurse
     info!("completed synchronization");
-    Ok(result)
+    Ok(())
 }
