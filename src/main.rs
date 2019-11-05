@@ -10,6 +10,7 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
+use bitcoin_zmq::ZMQListener;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join, prelude::*};
 use tonic::transport::{Error as TonicError, Server};
@@ -32,10 +33,21 @@ lazy_static! {
         .version(crate_version!())
         .author(crate_authors!("/n"))
         .about(crate_description!())
-        .arg(Arg::with_name("bitcoin-rpc")
-            .long("bitcoin-rpc")
-            .help("Sets the Bitcoin RPC address")
+        .arg(Arg::with_name("bitcoin")
+            .long("bitcoin")
+            .help("Sets the Bitcoin address")
             .takes_value(true))
+        .arg(Arg::with_name("bitcoin-rpc-port")
+            .long("bitcoin-rpc-port")
+            .help("Sets the Bitcoin RPC port")
+            .takes_value(true))
+        .arg(Arg::with_name("bitcoin-zmq-port")
+            .long("bitcoin-zmq-port")
+            .help("Sets the Bitcoin ZMQ port")
+            .takes_value(true))
+        .arg(Arg::with_name("bitcoin-tls")
+            .long("bitcoin-tls")
+            .help("Use TLS to connect to bitcoind"))
         .arg(Arg::with_name("bitcoin-user")
             .long("bitcoin-user")
             .help("Sets the Bitcoin RPC user")
@@ -93,11 +105,24 @@ async fn main() -> Result<(), AppError> {
     env_logger::init();
 
     // Init Bitcoin client
+    let protocol = if SETTINGS.bitcoin_tls {
+        "https"
+    } else {
+        "http"
+    };
     let bitcoin_client = BitcoinClient::new(
-        SETTINGS.bitcoin_rpc.clone(),
+        format!(
+            "{}://{}:{}",
+            protocol,
+            SETTINGS.bitcoin.clone(),
+            SETTINGS.bitcoin_rpc_port.clone()
+        ),
         SETTINGS.bitcoin_user.clone(),
         SETTINGS.bitcoin_password.clone(),
     );
+
+    // Setup ZMQ listener
+    // let listener = ZMQListener
 
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");

@@ -3,7 +3,10 @@ use serde::Deserialize;
 
 use crate::CLI_ARGS;
 
-pub const DEFAULT_BITCOIN_RPC: &str = "http://localhost:18443";
+pub const DEFAULT_BITCOIN: &str = "localhost";
+pub const DEFAULT_BITCOIN_TLS: bool = false;
+pub const DEFAULT_BITCOIN_RPC_PORT: u16 = 18443;
+pub const DEFAULT_BITCOIN_ZMQ_PORT: u16 = 28332;
 pub const DEFAULT_BITCOIN_USER: &str = "user";
 pub const DEFAULT_BITCOIN_PASSWORD: &str = "password";
 pub const DEFAULT_BIND: &str = "[::1]:50051";
@@ -13,7 +16,10 @@ pub const DEFAULT_DB_PATH: &str = ".photon/db";
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
-    pub bitcoin_rpc: String,
+    pub bitcoin: String,
+    pub bitcoin_tls: bool,
+    pub bitcoin_rpc_port: u16,
+    pub bitcoin_zmq_port: u16,
     pub bitcoin_user: String,
     pub bitcoin_password: String,
     pub db_path: String,
@@ -34,7 +40,10 @@ impl Settings {
         };
 
         // Default settings
-        settings.set_default("bitcoin_rpc", DEFAULT_BITCOIN_RPC)?;
+        settings.set_default("bitcoin", DEFAULT_BITCOIN)?;
+        settings.set_default("bitcoin_tls", DEFAULT_BITCOIN_TLS)?;
+        settings.set_default("bitcoin_rpc_port", DEFAULT_BITCOIN_RPC_PORT as i64)?;
+        settings.set_default("bitcoin_zmq_port", DEFAULT_BITCOIN_ZMQ_PORT as i64)?;
         settings.set_default("bitcoin_user", DEFAULT_BITCOIN_USER)?;
         settings.set_default("bitcoin_password", DEFAULT_BITCOIN_PASSWORD)?;
         settings.set_default("bind", DEFAULT_BIND)?;
@@ -57,8 +66,15 @@ impl Settings {
         if let Some(banner) = CLI_ARGS.value_of("banner") {
             settings.set("banner", banner)?;
         }
-        if let Some(bitcoin_rpc) = CLI_ARGS.value_of("bitcoin-rpc") {
-            settings.set("bitcoin_rpc", bitcoin_rpc)?;
+        if let Some(bitcoin) = CLI_ARGS.value_of("bitcoin") {
+            settings.set("bitcoin", bitcoin)?;
+        }
+        settings.set("bitcoin_tls", CLI_ARGS.is_present("bitcoin-tls"))?;
+        if let Some(bitcoin_rpc_port) = CLI_ARGS.value_of("bitcoin-rpc-port") {
+            settings.set("bitcoin_rpc_port", bitcoin_rpc_port)?;
+        }
+        if let Some(bitcoin_zmq_port) = CLI_ARGS.value_of("bitcoin-zmq-port") {
+            settings.set("bitcoin_zmq_port", bitcoin_zmq_port)?;
         }
         if let Some(bitcoin_user) = CLI_ARGS.value_of("bitcoin-user") {
             settings.set("bitcoin_user", bitcoin_user)?;
