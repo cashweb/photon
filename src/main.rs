@@ -10,11 +10,11 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
-use std::sync::Arc;
-
+use bus_queue::async_::{
+    channel as bus_channel, Publisher as BusPublisher, Subscriber as BusSubscriber,
+};
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join3, prelude::*};
-use multiqueue2::broadcast_fut_queue;
 use tonic::transport::{Error as TonicError, Server};
 
 use crate::{
@@ -30,7 +30,7 @@ use db::Database;
 use state::StateMananger;
 use synchronization::{synchronize, SyncingError};
 
-pub const BROADCAST_CAPACITY: u64 = 256;
+pub const BROADCAST_CAPACITY: usize = 256;
 
 lazy_static! {
     // Declare APP and get matches
@@ -152,19 +152,8 @@ async fn main() -> Result<(), AppError> {
     };
     let sync = synchronize(bitcoin_client.clone(), db.clone(), sync_opt);
 
-    // Construct header broadcast channel
-    let (header_sender, header_bus) = broadcast_fut_queue(BROADCAST_CAPACITY);
-
-    // Construct header service
-    let header_service =
-        HeaderService::new(bitcoin_client.clone(), db.clone(), Arc::new(header_bus));
-    let header_svc = HeaderServer::new(header_service);
-
-    // Construct utility service
-    let utility_svc = UtilityServer::new(UtilityService {});
-
-    // Construct transaction service
-    let transaction_svc = TransactionServer::new(TransactionService { bitcoin_client, db });
+    // Create broadcast channels
+    let (header_sender, header_bus) = bus_channel(BROADCAST_CAPACITY);
 
     // Construct ZMQ handler
     let zmq_tx_addr = &format!(
@@ -175,7 +164,23 @@ async fn main() -> Result<(), AppError> {
         "tcp://{}:{}",
         SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
     );
-    let handler = zmq::handle_zmq(zmq_tx_addr, block_tx_addr, db.clone(), header_sender);
+    let handler = zmq::handle_zmq(
+        zmq_tx_addr,
+        block_tx_addr,
+        db.clone(),
+        header_sender,
+        header_bus.clone(),
+    );
+
+    // Construct header service
+    let header_service = HeaderService::new(bitcoin_client.clone(), db.clone(), header_bus);
+    let header_svc = HeaderServer::new(header_service);
+
+    // Construct utility service
+    let utility_svc = UtilityServer::new(UtilityService {});
+
+    // Construct transaction service
+    let transaction_svc = TransactionServer::new(TransactionService { bitcoin_client, db });
 
     // Start server
     let addr = SETTINGS.bind.parse().unwrap();

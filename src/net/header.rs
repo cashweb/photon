@@ -2,29 +2,27 @@ pub mod model {
     tonic::include_proto!("header");
 }
 
-use std::{pin::Pin, sync::Arc};
+use std::pin::Pin;
 
-use futures::Stream;
-use multiqueue2::{BroadcastFutSender, BroadcastFutUniReceiver};
+use bus_queue::async_::Subscriber as BusSubscriber;
+use futures::prelude::*;
 use tonic::{Code, Request, Response, Status};
 
 use crate::{bitcoin::client::*, db::Database};
 use model::{HeadersResponse, SubscribeResponse};
 
-use crate::BROADCAST_CAPACITY;
-
 #[derive(Clone)]
 pub struct HeaderService {
     bitcoin_client: BitcoinClient,
     db: Database,
-    header_bus: BroadcastFutUniReceiver<(u32, [u8; 80])>,
+    header_bus: BusSubscriber<(u32, [u8; 80])>,
 }
 
 impl HeaderService {
     pub fn new(
         bitcoin_client: BitcoinClient,
         db: Database,
-        header_bus: BroadcastFutUniReceiver<(u32, [u8; 80])>,
+        header_bus: BusSubscriber<(u32, [u8; 80])>,
     ) -> Self {
         HeaderService {
             bitcoin_client,
@@ -61,6 +59,17 @@ impl model::server::Header for HeaderService {
         &self,
         request: Request<()>,
     ) -> Result<Response<Self::SubscribeStream>, Status> {
-        Err(Status::new(Code::Unavailable, String::new()))
+        let response_stream = self
+            .header_bus
+            .clone()
+            .map(move |arc_val| arc_val.as_ref().clone())
+            .map(|(height, header)| {
+                Ok(SubscribeResponse {
+                    height: height,
+                    header: header.to_vec(),
+                })
+            });
+        let pinned = Box::pin(response_stream) as Self::SubscribeStream;
+        Ok(Response::new(pinned))
     }
 }

@@ -1,15 +1,17 @@
 use bitcoin::consensus::encode::Encodable;
 use bitcoin_zmq::{ZMQError, ZMQListener};
+use bus_queue::async_::{Publisher as BusPublisher, Subscriber as BusSubscriber};
 use futures::prelude::*;
-use multiqueue2::BroadcastFutSender;
+use futures::sink::SinkExt;
 
-use crate::{bitcoin::block_processing::*, db::Database, STATE_MANAGER};
+use crate::{bitcoin::block_processing::*, db::Database, BROADCAST_CAPACITY, STATE_MANAGER};
 
 #[derive(Debug)]
 pub enum HandlerError {
     Block(BlockProcessingError),
     Mempool,
     Connection(ZMQError),
+    Broker(std::sync::mpsc::SendError<(u32, [u8; 80])>),
 }
 
 impl From<ZMQError> for HandlerError {
@@ -22,8 +24,8 @@ pub async fn handle_zmq(
     block_addr: &str,
     tx_addr: &str,
     db: Database,
-    header_sender: BroadcastFutSender<(u32, [u8; 80])>,
-    // tx_sender: BroadcastFutSender<T>,
+    header_pub: BusPublisher<(u32, [u8; 80])>,
+    header_sub: BusSubscriber<(u32, [u8; 80])>,
 ) -> Result<(), HandlerError> {
     // Bind
     let block_listener = ZMQListener::bind(block_addr).await?;
@@ -55,20 +57,32 @@ pub async fn handle_zmq(
         (height, raw_block)
     });
 
+    // Decode raw block stream
     let paired_block_stream = decode_block_stream(paired_raw_block_stream);
 
     // TODO: Validate block header here
 
-    let broadcast_block_stream = paired_block_stream.map_ok(move |(height, block)| {
-        let mut header: [u8; 80] = [0; 80];
-        block.header.consensus_encode(&mut header[..]).unwrap(); // TODO: Make this safe
-        header_sender.try_send((height, header)).unwrap(); // TODO: Make this safe
-        (height, block)
+    // Feed into broadcast channel
+    // TODO: Re-evaluate this, it's a mess
+    let (relay_sender, recv) = futures::channel::mpsc::channel(BROADCAST_CAPACITY);
+    let relay_block_stream = paired_block_stream.and_then(move |(height, block)| {
+        let mut relay_sender_inner = relay_sender.clone();
+        async move {
+            let mut header: [u8; 80] = [0; 80];
+            block.header.consensus_encode(&mut header[..]).unwrap(); // TODO: Make this safe
+            let height_inner = height.clone();
+            relay_sender_inner.send((height_inner, header)).await;
+            Ok((height, block))
+        }
     });
+    let broadcast = recv
+        .map(|x| Ok(x))
+        .forward(header_pub)
+        .map_err(|err| HandlerError::Broker(err));
 
-    let block_handler = process_block_stream(broadcast_block_stream, db, &block_callback)
+    let block_handler = process_block_stream(relay_block_stream, db, &block_callback)
         .map_err(|err| HandlerError::Block(err));
-    Ok(future::try_join(tx_handler, block_handler)
+    Ok(future::try_join3(tx_handler, block_handler, broadcast)
         .map(|_| ())
         .await)
 }
