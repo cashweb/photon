@@ -2,18 +2,36 @@ pub mod model {
     tonic::include_proto!("header");
 }
 
-use std::pin::Pin;
+use std::{pin::Pin, sync::Arc};
 
 use futures::Stream;
+use multiqueue2::{BroadcastFutSender, BroadcastFutUniReceiver};
 use tonic::{Code, Request, Response, Status};
 
 use crate::{bitcoin::client::*, db::Database};
 use model::{HeadersResponse, SubscribeResponse};
 
+use crate::BROADCAST_CAPACITY;
+
 #[derive(Clone)]
 pub struct HeaderService {
-    pub bitcoin_client: BitcoinClient,
-    pub db: Database,
+    bitcoin_client: BitcoinClient,
+    db: Database,
+    header_bus: BroadcastFutUniReceiver<(u32, [u8; 80])>,
+}
+
+impl HeaderService {
+    pub fn new(
+        bitcoin_client: BitcoinClient,
+        db: Database,
+        header_bus: BroadcastFutUniReceiver<(u32, [u8; 80])>,
+    ) -> Self {
+        HeaderService {
+            bitcoin_client,
+            db,
+            header_bus,
+        }
+    }
 }
 
 #[tonic::async_trait]

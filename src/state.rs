@@ -30,6 +30,7 @@ pub struct StateMananger {
     /// Stores the current sync position
     /// 1 + the last block height sync'd
     sync_position: CachePadded<AtomicU32>,
+    // Broadcast queue to for headers
 }
 
 impl Default for StateMananger {

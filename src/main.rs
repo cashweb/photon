@@ -10,8 +10,11 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
+use std::sync::Arc;
+
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join3, prelude::*};
+use multiqueue2::broadcast_fut_queue;
 use tonic::transport::{Error as TonicError, Server};
 
 use crate::{
@@ -26,6 +29,8 @@ use crate::{
 use db::Database;
 use state::StateMananger;
 use synchronization::{synchronize, SyncingError};
+
+pub const BROADCAST_CAPACITY: u64 = 256;
 
 lazy_static! {
     // Declare APP and get matches
@@ -129,17 +134,7 @@ async fn main() -> Result<(), AppError> {
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
 
-    // Construct ZMQ handler
-    let zmq_tx_addr = &format!(
-        "tcp://{}:{}",
-        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_block_port
-    );
-    let block_tx_addr = &format!(
-        "tcp://{}:{}",
-        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
-    );
-    let handler = zmq::handle_zmq(zmq_tx_addr, block_tx_addr, db.clone());
-
+    // Construct syncronization future
     let sync_opt = if let Some(arg) = CLI_ARGS.value_of("sync-from") {
         if let Ok(from) = arg.parse::<u32>() {
             Some(from)
@@ -157,17 +152,30 @@ async fn main() -> Result<(), AppError> {
     };
     let sync = synchronize(bitcoin_client.clone(), db.clone(), sync_opt);
 
+    // Construct header broadcast channel
+    let (header_sender, header_bus) = broadcast_fut_queue(BROADCAST_CAPACITY);
+
     // Construct header service
-    let header_svc = HeaderServer::new(HeaderService {
-        bitcoin_client: bitcoin_client.clone(),
-        db: db.clone(),
-    });
+    let header_service =
+        HeaderService::new(bitcoin_client.clone(), db.clone(), Arc::new(header_bus));
+    let header_svc = HeaderServer::new(header_service);
 
     // Construct utility service
     let utility_svc = UtilityServer::new(UtilityService {});
 
     // Construct transaction service
     let transaction_svc = TransactionServer::new(TransactionService { bitcoin_client, db });
+
+    // Construct ZMQ handler
+    let zmq_tx_addr = &format!(
+        "tcp://{}:{}",
+        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_block_port
+    );
+    let block_tx_addr = &format!(
+        "tcp://{}:{}",
+        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
+    );
+    let handler = zmq::handle_zmq(zmq_tx_addr, block_tx_addr, db.clone(), header_sender);
 
     // Start server
     let addr = SETTINGS.bind.parse().unwrap();

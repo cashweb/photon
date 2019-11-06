@@ -61,8 +61,6 @@ pub async fn synchronize(
         return Ok(());
     }
 
-    // TODO: Validate from this position?
-
     // Construct block stream
     let raw_block_stream = bitcoin_client.raw_block_stream(last_sync_position, block_count);
 
@@ -88,6 +86,8 @@ pub async fn synchronize(
     };
 
     let block_stream = decode_block_stream(raw_block_stream);
+
+    // TODO: Validate block header here
 
     process_block_stream(block_stream, db, &block_callback)
         .map_err(SyncingError::BlockProcessing)
