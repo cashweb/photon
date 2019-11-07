@@ -10,8 +10,9 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
+use bus_queue::bounded as bus_channel;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future::try_join, prelude::*};
+use futures::{future::try_join3, prelude::*};
 use tonic::transport::{Error as TonicError, Server};
 
 use crate::{
@@ -20,11 +21,14 @@ use crate::{
         header::{model::server::HeaderServer, HeaderService},
         transaction::{model::server::TransactionServer, TransactionService},
         utility::{model::server::UtilityServer, UtilityService},
+        zmq,
     },
 };
 use db::Database;
 use state::StateMananger;
 use synchronization::{synchronize, SyncingError};
+
+pub const BROADCAST_CAPACITY: usize = 256;
 
 lazy_static! {
     // Declare APP and get matches
@@ -32,10 +36,25 @@ lazy_static! {
         .version(crate_version!())
         .author(crate_authors!("/n"))
         .about(crate_description!())
-        .arg(Arg::with_name("bitcoin-rpc")
-            .long("bitcoin-rpc")
-            .help("Sets the Bitcoin RPC address")
+        .arg(Arg::with_name("bitcoin")
+            .long("bitcoin")
+            .help("Sets the Bitcoin address")
             .takes_value(true))
+        .arg(Arg::with_name("bitcoin-rpc-port")
+            .long("bitcoin-rpc-port")
+            .help("Sets the Bitcoin RPC port")
+            .takes_value(true))
+        .arg(Arg::with_name("bitcoin-zmq-tx-port")
+            .long("bitcoin-zmq-tx-port")
+            .help("Sets the Bitcoin ZMQ transaction port")
+            .takes_value(true))
+        .arg(Arg::with_name("bitcoin-zmq-block-port")
+            .long("bitcoin-zmq-block-port")
+            .help("Sets the Bitcoin ZMQ block port")
+            .takes_value(true))
+        .arg(Arg::with_name("bitcoin-tls")
+            .long("bitcoin-tls")
+            .help("Use TLS to connect to bitcoind"))
         .arg(Arg::with_name("bitcoin-user")
             .long("bitcoin-user")
             .help("Sets the Bitcoin RPC user")
@@ -85,6 +104,7 @@ enum AppError {
     Syncing(SyncingError),
     ServerError(TonicError),
     MistypedCLI(String),
+    Handler(net::zmq::HandlerError),
 }
 
 #[tokio::main]
@@ -93,8 +113,18 @@ async fn main() -> Result<(), AppError> {
     env_logger::init();
 
     // Init Bitcoin client
+    let protocol = if SETTINGS.bitcoin_tls {
+        "https"
+    } else {
+        "http"
+    };
     let bitcoin_client = BitcoinClient::new(
-        SETTINGS.bitcoin_rpc.clone(),
+        format!(
+            "{}://{}:{}",
+            protocol,
+            SETTINGS.bitcoin.clone(),
+            SETTINGS.bitcoin_rpc_port.clone()
+        ),
         SETTINGS.bitcoin_user.clone(),
         SETTINGS.bitcoin_password.clone(),
     );
@@ -102,6 +132,7 @@ async fn main() -> Result<(), AppError> {
     // Init Database
     let db = Database::try_new(&SETTINGS.db_path).expect("failed to open database");
 
+    // Construct syncronization future
     let sync_opt = if let Some(arg) = CLI_ARGS.value_of("sync-from") {
         if let Ok(from) = arg.parse::<u32>() {
             Some(from)
@@ -119,11 +150,23 @@ async fn main() -> Result<(), AppError> {
     };
     let sync = synchronize(bitcoin_client.clone(), db.clone(), sync_opt);
 
+    // Create broadcast channels
+    let (header_sender, header_bus) = bus_channel(BROADCAST_CAPACITY);
+
+    // Construct ZMQ handler
+    let zmq_tx_addr = &format!(
+        "tcp://{}:{}",
+        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_block_port
+    );
+    let block_tx_addr = &format!(
+        "tcp://{}:{}",
+        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
+    );
+    let handler = zmq::handle_zmq(zmq_tx_addr, block_tx_addr, db.clone(), header_sender);
+
     // Construct header service
-    let header_svc = HeaderServer::new(HeaderService {
-        bitcoin_client: bitcoin_client.clone(),
-        db: db.clone(),
-    });
+    let header_service = HeaderService::new(bitcoin_client.clone(), db.clone(), header_bus);
+    let header_svc = HeaderServer::new(header_service);
 
     // Construct utility service
     let utility_svc = UtilityServer::new(UtilityService {});
@@ -140,9 +183,10 @@ async fn main() -> Result<(), AppError> {
         .add_service(transaction_svc)
         .serve(addr);
 
-    try_join(
+    try_join3(
         server.map_err(AppError::ServerError),
         sync.map_err(AppError::Syncing),
+        handler.map_err(AppError::Handler),
     )
     .await?;
 

@@ -4,16 +4,29 @@ pub mod model {
 
 use std::pin::Pin;
 
-use futures::Stream;
+use futures::prelude::*;
 use tonic::{Code, Request, Response, Status};
 
-use crate::{bitcoin::client::*, db::Database};
+use crate::{bitcoin::client::*, db::Database, zmq::HandlerError};
 use model::{HeadersResponse, SubscribeResponse};
+
+type Sub = bus_queue::Subscriber<Result<(u32, [u8; 80]), HandlerError>>;
 
 #[derive(Clone)]
 pub struct HeaderService {
-    pub bitcoin_client: BitcoinClient,
-    pub db: Database,
+    bitcoin_client: BitcoinClient,
+    db: Database,
+    header_bus: Sub,
+}
+
+impl HeaderService {
+    pub fn new(bitcoin_client: BitcoinClient, db: Database, header_bus: Sub) -> Self {
+        HeaderService {
+            bitcoin_client,
+            db,
+            header_bus,
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -38,11 +51,18 @@ impl model::server::Header for HeaderService {
         Ok(Response::new(header_response))
     }
 
-    // TODO
-    async fn subscribe(
-        &self,
-        request: Request<()>,
-    ) -> Result<Response<Self::SubscribeStream>, Status> {
-        Err(Status::new(Code::Unavailable, String::new()))
+    async fn subscribe(&self, _: Request<()>) -> Result<Response<Self::SubscribeStream>, Status> {
+        let response_stream = self.header_bus.clone().map(move |arc_val| {
+            arc_val
+                .as_ref()
+                .as_ref()
+                .map(move |(height, header)| SubscribeResponse {
+                    height: *height,
+                    header: header.to_vec(),
+                })
+                .map_err(|err| Status::new(Code::Aborted, format!("{:?}", err)))
+        });
+        let pinned = Box::pin(response_stream) as Self::SubscribeStream;
+        Ok(Response::new(pinned))
     }
 }
