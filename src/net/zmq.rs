@@ -1,6 +1,6 @@
 use bitcoin::consensus::encode::Encodable;
 use bitcoin_zmq::{ZMQError, ZMQListener};
-use bus_queue::async_::{Publisher as BusPublisher, Subscriber as BusSubscriber};
+use bus_queue::{Publisher as BusPublisher, Subscriber as BusSubscriber};
 use futures::prelude::*;
 use futures::sink::SinkExt;
 

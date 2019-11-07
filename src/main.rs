@@ -10,8 +10,8 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
-use bus_queue::async_::{
-    channel as bus_channel, Publisher as BusPublisher, Subscriber as BusSubscriber,
+use bus_queue::{
+    bounded as bus_channel, Publisher as BusPublisher, Subscriber as BusSubscriber,
 };
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join3, prelude::*};

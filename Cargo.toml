@@ -9,11 +9,11 @@ description = "Photon is a high performance wallet backend."
 bitcoin = "0.21.0"
 bitcoin-zmq = "0.2.0-alpha.0"
 bitcoin_hashes = "0.7.1"
-bus_queue = { git = "https://github.com/hlb8122/bus-queue", branch = "futures0.3" }
+bus_queue = { git = "https://github.com/hlb8122/bus-queue" }
 bytes = "0.4.12"
 clap = "2.33.0"
 config = "0.9.3"
-crossbeam = "0.7.2"
+crossbeam = "0.7.3"
 dirs = "2.0.2"
 env_logger = "0.7.1"
 futures-preview = "0.3.0-alpha.19"

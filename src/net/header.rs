@@ -4,7 +4,7 @@ pub mod model {
 
 use std::pin::Pin;
 
-use bus_queue::async_::Subscriber as BusSubscriber;
+use bus_queue::Subscriber as BusSubscriber;
 use futures::prelude::*;
 use tonic::{Code, Request, Response, Status};
 
