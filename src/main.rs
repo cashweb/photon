@@ -10,9 +10,7 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
-use bus_queue::{
-    bounded as bus_channel, Publisher as BusPublisher, Subscriber as BusSubscriber,
-};
+use bus_queue::bounded as bus_channel;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join3, prelude::*};
 use tonic::transport::{Error as TonicError, Server};
@@ -164,13 +162,7 @@ async fn main() -> Result<(), AppError> {
         "tcp://{}:{}",
         SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
     );
-    let handler = zmq::handle_zmq(
-        zmq_tx_addr,
-        block_tx_addr,
-        db.clone(),
-        header_sender,
-        header_bus.clone(),
-    );
+    let handler = zmq::handle_zmq(zmq_tx_addr, block_tx_addr, db.clone(), header_sender);
 
     // Construct header service
     let header_service = HeaderService::new(bitcoin_client.clone(), db.clone(), header_bus);

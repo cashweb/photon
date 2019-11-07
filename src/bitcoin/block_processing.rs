@@ -9,8 +9,6 @@ use rocksdb::Error as RocksError;
 use super::{client::*, tx_processing::*};
 use crate::db::Database;
 
-const BLOCK_CHUNK_SIZE: usize = 128;
-
 #[derive(Debug)]
 pub enum BlockProcessingError {
     Bitcoin(BitcoinError),
@@ -54,8 +52,7 @@ pub async fn process_block(
     height: u32,
     block: Block,
     db: Database,
-    block_callback: &dyn Fn(u32) -> Result<(), BlockProcessingError>,
-) -> Result<(), BlockProcessingError> {
+) -> Result<(u32, [u8; 80]), BlockProcessingError> {
     // Process header
     let mut raw_header: [u8; 80] = [0; 80];
     block.header.consensus_encode(&mut raw_header[..]).unwrap();
@@ -63,12 +60,9 @@ pub async fn process_block(
 
     // Process transactions
     let txs = block.txdata;
-    let process_tx = process_transactions(height, txs, db).await?;
+    process_transactions(height, txs, db).await?;
 
-    // Do some action dependending on block height
-    block_callback(height)?;
-
-    Ok(())
+    Ok((height, raw_header))
 }
 
 pub fn decode_block_stream<E: Into<BlockProcessingError>>(
@@ -84,16 +78,14 @@ pub fn decode_block_stream<E: Into<BlockProcessingError>>(
         })
 }
 
-pub async fn process_block_stream<E: Into<BlockProcessingError>>(
-    block_stream: impl Stream<Item = Result<(u32, Block), E>> + Send,
+pub fn process_block_stream<E: Into<BlockProcessingError>>(
+    block_stream: impl TryStream<Ok = (u32, Block), Error = E> + Send,
     db: Database,
-    block_callback: &dyn Fn(u32) -> Result<(), BlockProcessingError>,
-) -> Result<(), BlockProcessingError> {
-    let processing = block_stream
-        .err_into::<BlockProcessingError>()
-        .try_for_each_concurrent(BLOCK_CHUNK_SIZE, move |(height, block): (u32, Block)| {
+) -> impl TryStream<Ok = (u32, [u8; 80]), Error = BlockProcessingError> + Send {
+    block_stream.err_into::<BlockProcessingError>().and_then(
+        move |(height, block): (u32, Block)| {
             let db_inner = db.clone();
-            process_block(height, block, db_inner, block_callback)
-        });
-    processing.await
+            process_block(height, block, db_inner)
+        },
+    )
 }

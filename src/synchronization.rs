@@ -1,4 +1,4 @@
-use futures::TryFutureExt;
+use futures::prelude::*;
 
 use crate::{
     bitcoin::{block_processing::*, client::*},
@@ -14,10 +14,10 @@ pub enum SyncingError {
     Chaintip(BitcoinError),
     /// Error grabbing last sync position
     LastSyncGet(rocksdb::Error),
-    /// Error setting last sync position
-    LastSyncSet(rocksdb::Error),
     /// Error during block processing
     BlockProcessing(BlockProcessingError),
+    /// Error during state increment
+    Increment(rocksdb::Error),
 }
 
 impl From<BlockProcessingError> for SyncingError {
@@ -70,35 +70,38 @@ pub async fn synchronize(
         last_sync_position, block_count
     );
 
-    let db_inner = db.clone();
-    let block_callback = |block_height| {
-        if block_height % 1_000 == 0 {
-            info!("processed block {}", block_height);
-        }
-        let position = STATE_MANAGER.increment_sync_position();
-
-        // Cache result periodically
-        if position % PERSIST_SYNC_POS_INTERVAL == 0 {
-            trace!("stored sync position {}", position);
-            db_inner.set_sync_position(position + 1)?;
-        }
-        Ok(())
-    };
-
     let block_stream = decode_block_stream(raw_block_stream);
 
     // TODO: Validate block header here
 
-    process_block_stream(block_stream, db, &block_callback)
-        .map_err(SyncingError::BlockProcessing)
-        .await?;
+    let process_block_stream =
+        process_block_stream(block_stream, db.clone()).map_err(SyncingError::BlockProcessing);
+
+    let increment = process_block_stream.try_for_each(|(height, _)| {
+        let db_inner = db.clone();
+        async move {
+            if height % 1_000 == 0 {
+                info!("processed block {}", height);
+            }
+            let position = STATE_MANAGER.increment_sync_position();
+
+            // Cache result periodically
+            if position % PERSIST_SYNC_POS_INTERVAL == 0 {
+                trace!("stored sync position {}", position);
+                db_inner
+                    .set_sync_position(position + 1)
+                    .map_err(SyncingError::Increment)?;
+            }
+            Ok(())
+        }
+    });
+    increment.await?;
 
     // Finalize state position
     let position = STATE_MANAGER.sync_position();
     info!("setting position: {}", position);
-    db_inner
-        .set_sync_position(position)
-        .map_err(SyncingError::LastSyncSet)?;
+    db.set_sync_position(position)
+        .map_err(SyncingError::Increment)?;
 
     // TODO: Check that we've actually met the chaintip here
     // Perhaps just simply recurse
