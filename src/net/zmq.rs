@@ -1,6 +1,5 @@
 use bitcoin_zmq::{ZMQError, ZMQListener};
 use futures::prelude::*;
-use futures::sink::SinkExt;
 
 use crate::{bitcoin::block_processing::*, db::Database, STATE_MANAGER};
 

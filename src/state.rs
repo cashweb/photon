@@ -9,6 +9,8 @@ use crossbeam::{
 };
 use futures::channel::oneshot;
 
+use crate::STATE_MANAGER;
+
 const RESUME_QUEUE_SIZE: usize = 2048;
 
 /// Represents the current state of the service
@@ -30,7 +32,6 @@ pub struct StateMananger {
     /// Stores the current sync position
     /// 1 + the last block height sync'd
     sync_position: CachePadded<AtomicU32>,
-    // Broadcast queue to for headers
 }
 
 impl Default for StateMananger {
@@ -42,6 +43,18 @@ impl Default for StateMananger {
             sync_position: CachePadded::new(AtomicU32::new(0)),
         }
     }
+}
+
+pub enum Barrier {
+    /// Request arrived during syncing, reject immediately
+    Syncing,
+    /// Request arrived during re-org, reject on buffer overflow
+    ReOrging(oneshot::Receiver<bool>),
+}
+
+pub enum BarrierError {
+    Syncing,
+    ReOrgOverflow
 }
 
 impl StateMananger {
@@ -62,23 +75,35 @@ impl StateMananger {
     }
 
     /// Check whether service can process a request in current state
-    /// Returns a oneshot receiver representing readiness
-    /// Receiving true through the channel implies receiver to should process request
-    /// Receiving false through the channel implies receiver should reject request
-    /// Receiving None indicates that the request should be immediately processed
-    pub fn try_barrier(&self) -> Option<oneshot::Receiver<bool>> {
+    /// Returns a barrier when there is an obstruction to the request
+    pub fn try_barrier(&self) -> Option<Barrier> {
         let state_read = self.state.read().unwrap();
         match *state_read {
-            State::Syncing => Some(self.new_resume_channel()),
+            State::Syncing => Some(Barrier::Syncing),
             State::Active => {
                 // Increment active request counter
                 self.active_counter.fetch_add(1, Ordering::SeqCst);
                 None
             }
-            State::ReOrgPending => Some(self.new_resume_channel()),
-            State::ReOrg => Some(self.new_resume_channel()),
+            State::ReOrgPending => Some(Barrier::ReOrging(self.new_resume_channel())),
+            State::ReOrg => Some(Barrier::ReOrging(self.new_resume_channel())),
         }
     }
+
+    pub async fn async_barrier(&self) -> Result<(), BarrierError> {
+        if let Some(barrier) = STATE_MANAGER.try_barrier() {
+            match barrier {
+                Barrier::Syncing => Err(BarrierError::Syncing),
+                Barrier::ReOrging(channel) => if channel.await.unwrap() {
+                    Ok(())
+                } else {
+                    Err(BarrierError::ReOrgOverflow)
+                }
+            }
+        } else {
+            Ok(())
+        }
+    } 
 
     /// Signal to state manager that request has completed
     pub fn signal_completion(&self) {
