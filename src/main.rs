@@ -13,7 +13,7 @@ pub mod synchronization;
 use bus_queue::bounded as bus_channel;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use futures::{future::try_join3, prelude::*};
-use tonic::transport::{Error as TonicError, Server};
+use tonic::transport::{Error as TonicError, Identity, Server, ServerTlsConfig};
 
 use crate::{
     bitcoin::client::BitcoinClient,
@@ -105,6 +105,8 @@ enum AppError {
     ServerError(TonicError),
     MistypedCLI(String),
     Handler(net::zmq::HandlerError),
+    IncompleteTLS,
+    TLSFileError(std::io::Error),
 }
 
 #[tokio::main]
@@ -171,15 +173,39 @@ async fn main() -> Result<(), AppError> {
     // Construct transaction service
     let transaction_svc = TransactionServer::new(TransactionService { bitcoin_client, db });
 
-    // Start server
+    let mut server_builder = Server::builder();
+    match (
+        SETTINGS.tls_pem_path.as_ref(),
+        SETTINGS.tls_key_path.as_ref(),
+    ) {
+        (Some(tls_pem_path), Some(tls_key_path)) => {
+            // Read TLS files
+            let cert = tokio::fs::read(tls_pem_path)
+                .await
+                .map_err(AppError::TLSFileError)?;
+            let key = tokio::fs::read(tls_key_path)
+                .await
+                .map_err(AppError::TLSFileError)?;
+            let identity = Identity::from_pem(cert, key);
+
+            // Add TLS to server
+            server_builder = server_builder
+                .tls_config(&ServerTlsConfig::with_rustls().identity(identity))
+                .clone();
+        }
+        (None, None) => (),
+        _ => return Err(AppError::IncompleteTLS),
+    }
+
     let addr = SETTINGS.bind.parse().unwrap();
-    info!("starting server @ {}", addr);
-    let server = Server::builder()
+    let server = server_builder
         .add_service(header_svc)
         .add_service(utility_svc)
         .add_service(transaction_svc)
         .serve(addr);
 
+    // Start server
+    info!("starting server @ {}", addr);
     try_join3(
         server.map_err(AppError::ServerError),
         sync.map_err(AppError::Syncing),

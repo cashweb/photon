@@ -54,7 +54,7 @@ pub enum Barrier {
 
 pub enum BarrierError {
     Syncing,
-    ReOrgOverflow
+    ReOrgOverflow,
 }
 
 impl StateMananger {
@@ -94,16 +94,18 @@ impl StateMananger {
         if let Some(barrier) = STATE_MANAGER.try_barrier() {
             match barrier {
                 Barrier::Syncing => Err(BarrierError::Syncing),
-                Barrier::ReOrging(channel) => if channel.await.unwrap() {
-                    Ok(())
-                } else {
-                    Err(BarrierError::ReOrgOverflow)
+                Barrier::ReOrging(channel) => {
+                    if channel.await.unwrap() {
+                        Ok(())
+                    } else {
+                        Err(BarrierError::ReOrgOverflow)
+                    }
                 }
             }
         } else {
             Ok(())
         }
-    } 
+    }
 
     /// Signal to state manager that request has completed
     pub fn signal_completion(&self) {

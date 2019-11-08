@@ -28,6 +28,8 @@ pub struct Settings {
     pub bind: String,
     pub banner: String,
     pub donation_address: String,
+    pub tls_pem_path: Option<String>,
+    pub tls_key_path: Option<String>,
 }
 
 impl Settings {
@@ -77,10 +79,10 @@ impl Settings {
             settings.set("bitcoin_rpc_port", bitcoin_rpc_port)?;
         }
         if let Some(bitcoin_zmq_block_addr) = CLI_ARGS.value_of("bitcoin-zmq-block-port") {
-            settings.set("bitcoin_zmq_block_port", bitcoin_zmq_block_addr)?;
+            settings.set("bitcoin_zmq_block_addr", bitcoin_zmq_block_addr)?;
         }
         if let Some(bitcoin_zmq_tx_addr) = CLI_ARGS.value_of("bitcoin-zmq-tx-port") {
-            settings.set("bitcoin_zmq_tx_port", bitcoin_zmq_tx_addr)?;
+            settings.set("bitcoin_zmq_block_addr", bitcoin_zmq_tx_addr)?;
         }
         if let Some(bitcoin_user) = CLI_ARGS.value_of("bitcoin-user") {
             settings.set("bitcoin_user", bitcoin_user)?;
