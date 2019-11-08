@@ -78,11 +78,11 @@ impl Settings {
         if let Some(bitcoin_rpc_port) = CLI_ARGS.value_of("bitcoin-rpc-port") {
             settings.set("bitcoin_rpc_port", bitcoin_rpc_port)?;
         }
-        if let Some(bitcoin_zmq_block_addr) = CLI_ARGS.value_of("bitcoin-zmq-block-port") {
+        if let Some(bitcoin_zmq_block_addr) = CLI_ARGS.value_of("bitcoin-zmq-block-addr") {
             settings.set("bitcoin_zmq_block_addr", bitcoin_zmq_block_addr)?;
         }
-        if let Some(bitcoin_zmq_tx_addr) = CLI_ARGS.value_of("bitcoin-zmq-tx-port") {
-            settings.set("bitcoin_zmq_block_addr", bitcoin_zmq_tx_addr)?;
+        if let Some(bitcoin_zmq_tx_addr) = CLI_ARGS.value_of("bitcoin-zmq-tx-addr") {
+            settings.set("bitcoin_zmq_tx_addr", bitcoin_zmq_tx_addr)?;
         }
         if let Some(bitcoin_user) = CLI_ARGS.value_of("bitcoin-user") {
             settings.set("bitcoin_user", bitcoin_user)?;
