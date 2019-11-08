@@ -154,15 +154,12 @@ async fn main() -> Result<(), AppError> {
     let (header_sender, header_bus) = bus_channel(BROADCAST_CAPACITY);
 
     // Construct ZMQ handler
-    let zmq_tx_addr = &format!(
-        "tcp://{}:{}",
-        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_block_port
+    let handler = zmq::handle_zmq(
+        &SETTINGS.bitcoin_zmq_block_addr,
+        &SETTINGS.bitcoin_zmq_tx_addr,
+        db.clone(),
+        header_sender,
     );
-    let block_tx_addr = &format!(
-        "tcp://{}:{}",
-        SETTINGS.bitcoin, SETTINGS.bitcoin_zmq_tx_port
-    );
-    let handler = zmq::handle_zmq(zmq_tx_addr, block_tx_addr, db.clone(), header_sender);
 
     // Construct header service
     let header_service = HeaderService::new(bitcoin_client.clone(), db.clone(), header_bus);

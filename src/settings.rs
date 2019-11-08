@@ -6,8 +6,8 @@ use crate::CLI_ARGS;
 pub const DEFAULT_BITCOIN: &str = "localhost";
 pub const DEFAULT_BITCOIN_TLS: bool = false;
 pub const DEFAULT_BITCOIN_RPC_PORT: u16 = 18443;
-pub const DEFAULT_BITCOIN_ZMQ_BLOCK_PORT: u16 = 28332;
-pub const DEFAULT_BITCOIN_ZMQ_TX_PORT: u16 = 28333;
+pub const DEFAULT_BITCOIN_ZMQ_BLOCK_ADDR: &str = "tcp://localhost:28332";
+pub const DEFAULT_BITCOIN_ZMQ_TX_ADDR: &str = "tcp://localhost:28333";
 pub const DEFAULT_BITCOIN_USER: &str = "user";
 pub const DEFAULT_BITCOIN_PASSWORD: &str = "password";
 pub const DEFAULT_BIND: &str = "[::1]:50051";
@@ -20,8 +20,8 @@ pub struct Settings {
     pub bitcoin: String,
     pub bitcoin_tls: bool,
     pub bitcoin_rpc_port: u16,
-    pub bitcoin_zmq_block_port: u16,
-    pub bitcoin_zmq_tx_port: u16,
+    pub bitcoin_zmq_block_addr: String,
+    pub bitcoin_zmq_tx_addr: String,
     pub bitcoin_user: String,
     pub bitcoin_password: String,
     pub db_path: String,
@@ -45,11 +45,8 @@ impl Settings {
         settings.set_default("bitcoin", DEFAULT_BITCOIN)?;
         settings.set_default("bitcoin_tls", DEFAULT_BITCOIN_TLS)?;
         settings.set_default("bitcoin_rpc_port", DEFAULT_BITCOIN_RPC_PORT as i64)?;
-        settings.set_default(
-            "bitcoin_zmq_block_port",
-            DEFAULT_BITCOIN_ZMQ_BLOCK_PORT as i64,
-        )?;
-        settings.set_default("bitcoin_zmq_tx_port", DEFAULT_BITCOIN_ZMQ_TX_PORT as i64)?;
+        settings.set_default("bitcoin_zmq_block_addr", DEFAULT_BITCOIN_ZMQ_BLOCK_ADDR)?;
+        settings.set_default("bitcoin_zmq_tx_addr", DEFAULT_BITCOIN_ZMQ_TX_ADDR)?;
         settings.set_default("bitcoin_user", DEFAULT_BITCOIN_USER)?;
         settings.set_default("bitcoin_password", DEFAULT_BITCOIN_PASSWORD)?;
         settings.set_default("bind", DEFAULT_BIND)?;
@@ -79,11 +76,11 @@ impl Settings {
         if let Some(bitcoin_rpc_port) = CLI_ARGS.value_of("bitcoin-rpc-port") {
             settings.set("bitcoin_rpc_port", bitcoin_rpc_port)?;
         }
-        if let Some(bitcoin_zmq_block_port) = CLI_ARGS.value_of("bitcoin-zmq-block-port") {
-            settings.set("bitcoin_zmq_block_port", bitcoin_zmq_block_port)?;
+        if let Some(bitcoin_zmq_block_addr) = CLI_ARGS.value_of("bitcoin-zmq-block-port") {
+            settings.set("bitcoin_zmq_block_port", bitcoin_zmq_block_addr)?;
         }
-        if let Some(bitcoin_zmq_tx_port) = CLI_ARGS.value_of("bitcoin-zmq-tx-port") {
-            settings.set("bitcoin_zmq_tx_port", bitcoin_zmq_tx_port)?;
+        if let Some(bitcoin_zmq_tx_addr) = CLI_ARGS.value_of("bitcoin-zmq-tx-port") {
+            settings.set("bitcoin_zmq_tx_port", bitcoin_zmq_tx_addr)?;
         }
         if let Some(bitcoin_user) = CLI_ARGS.value_of("bitcoin-user") {
             settings.set("bitcoin_user", bitcoin_user)?;
