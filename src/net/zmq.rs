@@ -1,17 +1,18 @@
 use bitcoin::{
     consensus::encode::Error as DecodeError, util::psbt::serialize::Deserialize, Transaction,
 };
+use bitcoin_hashes::Hash;
 use bitcoin_zmq::{SubscriptionError, ZMQError, ZMQListener};
 use futures::prelude::*;
 
 use crate::{
     bitcoin::{block_processing::*, tx_processing::script_hash_transaction},
     db::Database,
-    STATE_MANAGER,
+    MEMPOOL, STATE_MANAGER,
 };
 
 type HeaderBus = bus_queue::Publisher<Result<(u32, [u8; 80]), HandlerError>>;
-type ScriptHashBus = bus_queue::Publisher<Result<[u8; 32], HandlerError>>;
+type ScriptHashBus = bus_queue::Publisher<Result<([u8; 32], [u8; 32]), HandlerError>>;
 
 #[derive(Debug)]
 pub enum MempoolError {
@@ -59,12 +60,28 @@ pub async fn handle_zmq(
             .and_then(move |raw_tx| {
                 async move {
                     let tx = Transaction::deserialize(&raw_tx).map_err(MempoolError::TxDecode)?;
-                    Ok(stream::iter(
-                        script_hash_transaction(&tx).into_iter().map(|tx| Ok(tx)),
-                    ))
+
+                    let tx_id_rev = tx.txid().into_inner();
+                    let mut tx_id = [0; 32];
+                    for i in 0..32 {
+                        tx_id[32 - i] = tx_id_rev[i];
+                    }
+
+                    // Push to mempool
+                    let mut mempool_lock = MEMPOOL.lock().unwrap();
+                    let script_hashes: Vec<_> = script_hash_transaction(&tx)
+                        .into_iter()
+                        .map(move |script_hash| {
+                            let status = mempool_lock.append_status(&script_hash, &tx_id);
+                            Ok((script_hash, status))
+                        })
+                        .collect();
+
+                    // Convert to stream
+                    Ok(stream::iter(script_hashes))
                 }
             })
-            .try_flatten()
+            .try_flatten() // Aggregate stream
             .map_err(HandlerError::Mempool),
     );
 

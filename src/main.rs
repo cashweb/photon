@@ -5,10 +5,13 @@ extern crate log;
 
 pub mod bitcoin;
 pub mod db;
+pub mod mempool;
 pub mod net;
 pub mod settings;
 pub mod state;
 pub mod synchronization;
+
+use std::sync::Mutex;
 
 use bus_queue::bounded as bus_channel;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
@@ -26,6 +29,7 @@ use crate::{
     },
 };
 use db::Database;
+use mempool::Mempool;
 use state::StateMananger;
 use synchronization::{synchronize, SyncingError};
 
@@ -98,6 +102,9 @@ lazy_static! {
 
     // Init state manager
     static ref STATE_MANAGER: StateMananger = StateMananger::default();
+
+    // Init mempool
+    static ref MEMPOOL: Mutex<Mempool> = Mutex::new(Mempool::default());
 }
 
 #[derive(Debug)]

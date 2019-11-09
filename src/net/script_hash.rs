@@ -10,7 +10,7 @@ use tonic::{Code, Request, Response, Status};
 use crate::{db::Database, zmq::HandlerError};
 use model::{SubscribeRequest, SubscribeResponse};
 
-type Sub = bus_queue::Subscriber<Result<([u8; 32]), HandlerError>>;
+type Sub = bus_queue::Subscriber<Result<([u8; 32], [u8; 32]), HandlerError>>;
 
 #[derive(Clone)]
 pub struct ScriptHashService {
@@ -45,11 +45,11 @@ impl model::server::ScriptHash for ScriptHashService {
                 arc_val
                     .as_ref()
                     .as_ref()
-                    .map(move |script_hash| {
+                    .map(move |(script_hash, status)| {
                         if &request_script_hash_inner[..] == &script_hash[..] {
                             Some(SubscribeResponse {
                                 confirmed_status: vec![],
-                                unconfirmed_status: vec![],
+                                unconfirmed_status: status.to_vec(),
                             })
                         } else {
                             None
