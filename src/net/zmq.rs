@@ -83,5 +83,6 @@ pub async fn handle_zmq(
         .send_all(&mut increment)
         .map_err(|_| HandlerError::Broker);
 
-    Ok(future::try_join(tx_handler, broadcast).map(|_| ()).await)
+    future::try_join(tx_handler, broadcast).map(|_| ()).await;
+    Ok(())
 }

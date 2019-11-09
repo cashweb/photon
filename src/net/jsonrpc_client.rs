@@ -89,10 +89,10 @@ impl JsonClient {
     }
 
     fn check_misc_errors(response: &reqwest::Response) -> Result<(), ClientError> {
-        let header = response.clone().headers().get("content-type");
+        let header = response.headers().get("content-type");
         match header {
             // No header indicates work queue full
-            None => return Err(ClientError::MissingContentType),
+            None => Err(ClientError::MissingContentType),
             Some(some) => {
                 let json_header = http::header::HeaderValue::from_str("application/json").unwrap();
                 if some == json_header {
@@ -101,9 +101,9 @@ impl JsonClient {
 
                 // status code 500 indicates a worker overflow
                 match response.status().as_u16() {
-                    500 => return Err(ClientError::WorkQueueFull),
-                    401 => return Err(ClientError::Unauthorized),
-                    x => return Err(ClientError::UnexpectedCode(x)),
+                    500 => Err(ClientError::WorkQueueFull),
+                    401 => Err(ClientError::Unauthorized),
+                    x => Err(ClientError::UnexpectedCode(x)),
                 }
             }
         }

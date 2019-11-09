@@ -143,12 +143,10 @@ async fn main() -> Result<(), AppError> {
                 "`sync-from` must be an unsigned 32-bit integer".to_string(),
             ));
         }
+    } else if CLI_ARGS.is_present("resync") {
+        Some(0)
     } else {
-        if CLI_ARGS.is_present("resync") {
-            Some(0)
-        } else {
-            None
-        }
+        None
     };
     let sync = synchronize(bitcoin_client.clone(), db.clone(), sync_opt);
 

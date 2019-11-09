@@ -37,9 +37,7 @@ impl Database {
         let raw_height: [u8; 4] = height.to_be_bytes();
         let mut key: [u8; 4 + 1] = [0; 4 + 1];
         key[0] = b'h';
-        for i in 0..4 {
-            key[i + 1] = raw_height[i]
-        }
+        key[1..].clone_from_slice(&raw_height[..]);
 
         self.0.put(&key, header)
     }
@@ -49,9 +47,7 @@ impl Database {
         let raw_height: [u8; 4] = height.to_be_bytes();
         let mut key: [u8; 4 + 1] = [0; 4 + 1];
         key[0] = b'h';
-        for i in 0..4 {
-            key[i + 1] = raw_height[i];
-        }
+        key[1..].clone_from_slice(&raw_height[..]);
 
         self.0.get(&key).map(|opt| opt.map(|some| some.to_vec()))
     }
@@ -68,9 +64,7 @@ impl Database {
         let raw_start_height: [u8; 4] = start_height.to_be_bytes();
         let mut start_key: [u8; 4 + 1] = [0; 4 + 1];
         start_key[0] = b'h';
-        for i in 0..4 {
-            start_key[i + 1] = raw_start_height[i];
-        }
+        start_key[1..].clone_from_slice(&raw_start_height[..]);
 
         // Init iterator
         let iter = self
@@ -99,9 +93,7 @@ impl Database {
         // Prefix key
         let mut key: [u8; TX_ID_PREFIX_LEN + 1] = [0; TX_ID_PREFIX_LEN + 1];
         key[0] = b't';
-        for i in 0..TX_ID_PREFIX_LEN {
-            key[i + 1] = tx_id[i];
-        }
+        key[1..].clone_from_slice(&tx_id[..]);
 
         self.0.put(&key, raw)
     }
@@ -110,9 +102,7 @@ impl Database {
         // Prefix key
         let mut key: [u8; TX_ID_PREFIX_LEN + 1] = [0; TX_ID_PREFIX_LEN + 1];
         key[0] = b't';
-        for i in 0..TX_ID_PREFIX_LEN {
-            key[i + 1] = tx_id[i]
-        }
+        key[1..].clone_from_slice(&tx_id[..]);
 
         self.0.get(&key).map(|opt| match opt {
             Some(some) => {

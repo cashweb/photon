@@ -134,16 +134,14 @@ impl StateMananger {
     pub fn transition(&self, new_state: State) {
         let mut state_write = self.state.write().unwrap();
 
-        let old_state = state_write.clone();
+        let old_state = *state_write;
 
-        match (old_state, new_state) {
-            (State::ReOrg, State::Active) => {
-                while let Ok(sender) = self.resume_queue.pop() {
-                    sender.send(true).unwrap();
-                }
+        if let (State::ReOrg, State::Active) = (old_state, new_state) {
+            while let Ok(sender) = self.resume_queue.pop() {
+                sender.send(true).unwrap();
             }
-            _ => (),
         }
+
         *state_write = new_state;
     }
 

@@ -144,7 +144,7 @@ impl BitcoinClient {
             .into_result::<Vec<ChainTipStatus>>()?;
         let tip_status = chain_tips
             .iter()
-            .find(|tip| tip.status == "active".to_string())
+            .find(|tip| tip.status == "active")
             .ok_or(BitcoinError::NoActiveTip)?;
         Ok(ChainTip {
             height: tip_status.height,
