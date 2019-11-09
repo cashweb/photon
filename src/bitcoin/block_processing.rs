@@ -60,7 +60,7 @@ pub async fn process_block(
 
     // Process transactions
     let txs = block.txdata;
-    process_transactions(height, txs, db).await?;
+    process_transactions(height, &txs, db).await?;
 
     Ok((height, raw_header))
 }

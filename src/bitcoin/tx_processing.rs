@@ -20,7 +20,7 @@ impl From<RocksError> for TxProcessingError {
 
 pub async fn process_transactions(
     block_height: u32,
-    txs: Vec<Transaction>,
+    txs: &[Transaction],
     db: Database,
 ) -> Result<(), TxProcessingError> {
     Ok(txs.iter().enumerate().try_for_each(move |(pos, tx)| {
