@@ -1,14 +1,28 @@
-use bitcoin_zmq::{ZMQError, ZMQListener};
+use bitcoin::{
+    consensus::encode::Error as DecodeError, util::psbt::serialize::Deserialize, Transaction,
+};
+use bitcoin_zmq::{SubscriptionError, ZMQError, ZMQListener};
 use futures::prelude::*;
 
-use crate::{bitcoin::block_processing::*, db::Database, STATE_MANAGER};
+use crate::{
+    bitcoin::{block_processing::*, tx_processing::script_hash_transaction},
+    db::Database,
+    STATE_MANAGER,
+};
 
-type Bus = bus_queue::Publisher<Result<(u32, [u8; 80]), HandlerError>>;
+type HeaderBus = bus_queue::Publisher<Result<(u32, [u8; 80]), HandlerError>>;
+type ScriptHashBus = bus_queue::Publisher<Result<[u8; 32], HandlerError>>;
+
+#[derive(Debug)]
+pub enum MempoolError {
+    TxDecode(DecodeError),
+    Subscription(SubscriptionError),
+}
 
 #[derive(Debug)]
 pub enum HandlerError {
     Block(BlockProcessingError),
-    Mempool,
+    Mempool(MempoolError),
     Connection(ZMQError),
     Broker,
     Increment(rocksdb::Error),
@@ -30,20 +44,34 @@ pub async fn handle_zmq(
     block_addr: &str,
     tx_addr: &str,
     db: Database,
-    mut header_bus: Bus,
+    mut header_bus: HeaderBus,
+    mut script_hash_bus: ScriptHashBus,
 ) -> Result<(), HandlerError> {
     // Bind
     let block_listener = ZMQListener::bind(block_addr).await?;
     let tx_listener = ZMQListener::bind(tx_addr).await?;
 
     // Handle blocks
-    let tx_handler = tx_listener
-        .stream()
-        .try_for_each(move |raw| {
-            println!("raw tx: {:?}", hex::encode(raw));
-            future::ok(())
-        })
-        .map_err(|_| HandlerError::Mempool);
+    let mut tx_stream = Box::pin(
+        tx_listener
+            .stream()
+            .map_err(MempoolError::Subscription)
+            .and_then(move |raw_tx| {
+                async move {
+                    let tx = Transaction::deserialize(&raw_tx).map_err(MempoolError::TxDecode)?;
+                    Ok(stream::iter(
+                        script_hash_transaction(&tx).into_iter().map(|tx| Ok(tx)),
+                    ))
+                }
+            })
+            .try_flatten()
+            .map_err(HandlerError::Mempool),
+    );
+
+    // Broadcast to all subscribers
+    let broadcast_tx = script_hash_bus
+        .send_all(&mut tx_stream)
+        .map_err(|_| HandlerError::Broker);
 
     // Pair blocks with sync position
     let paired_raw_block_stream = block_listener.stream().map_ok(|raw_block| {
@@ -79,10 +107,12 @@ pub async fn handle_zmq(
     );
 
     // Broadcast to all subscribers
-    let broadcast = header_bus
+    let broadcast_block = header_bus
         .send_all(&mut increment)
         .map_err(|_| HandlerError::Broker);
 
-    future::try_join(tx_handler, broadcast).map(|_| ()).await;
+    future::try_join(broadcast_tx, broadcast_block)
+        .map(|_| ())
+        .await;
     Ok(())
 }

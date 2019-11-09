@@ -1,5 +1,5 @@
-use bitcoin::Transaction;
-use bitcoin_hashes::Hash;
+use bitcoin::{util::psbt::serialize::Serialize, Transaction};
+use bitcoin_hashes::{sha256d::Hash as Sha256d, Hash};
 use rocksdb::Error as RocksError;
 
 use crate::{
@@ -16,6 +16,16 @@ impl From<RocksError> for TxProcessingError {
     fn from(err: RocksError) -> Self {
         TxProcessingError::Database(err)
     }
+}
+
+pub fn script_hash_transaction(tx: &Transaction) -> Vec<[u8; 32]> {
+    tx.output
+        .iter()
+        .map(|tx_out| {
+            let raw_script = tx_out.script_pubkey.serialize();
+            Sha256d::hash(&raw_script).into_inner()
+        })
+        .collect()
 }
 
 pub async fn process_transactions(
