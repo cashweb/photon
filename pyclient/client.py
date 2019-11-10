@@ -195,16 +195,16 @@ class Client:
         if self.trace: self.logger(f"<-- Got utility.DonationAddress:", addr[:80]+("..." if len(addr) > 80 else ""))
         return reply.address
 
-    async def Transaction(self, tx_hash: bytes) -> dict:
+    async def Transaction(self, tx_id: bytes) -> dict:
         ''' Wraps transaction.Transaction grpc method '''
         pb = transaction_pb2
-        if self.trace: self.logger(f"--> Sending transaction.Transaction('{tx_hash[:4].hex()}..{tx_hash[-4:].hex()}') ...")
-        request = pb.TransactionRequest(tx_hash=tx_hash)
+        if self.trace: self.logger(f"--> Sending transaction.Transaction('{tx_id[:4].hex()}..{tx_id[-4:].hex()}') ...")
+        request = pb.TransactionRequest(tx_id=tx_id)
         reply: pb.TransactionResponse = await self.transaction.Transaction(request)
-        tx_hash_server = reply.raw_tx and RHash(reply.raw_tx)
-        if tx_hash_server != tx_hash:
+        tx_id_server = reply.raw_tx and RHash(reply.raw_tx)
+        if tx_id_server != tx_id:
             raise MalformedResponse('raw_tx data from server does not match the requested txid',
-                                    tx_hash_server.hex(), tx_hash.hex())
+                                    tx_id_server.hex(), tx_id.hex())
         if self.trace: self.logger(f"<-- Got transaction.Transaction: {len(reply.raw_tx)} bytes ...")
         merkle_dict = dict()
         if reply.merkle:
@@ -305,8 +305,8 @@ class Client:
     def DonationAddress_Sync(self, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> str:
         return self._do_sync(self.DonationAddress(), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
     # TRANSACTION service (Synchronous/Blocking-style methods)
-    def Transaction_Sync(self, tx_hash: bytes, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> dict:
-        return self._do_sync(self.Transaction(tx_hash), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
+    def Transaction_Sync(self, tx_id: bytes, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> dict:
+        return self._do_sync(self.Transaction(tx_id), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
     # HEADER service (Synchronous/Blocking-style methods)
     def Headers_Sync(self, start_height: int, count: int, cp_height: int = 0, *, timeout=10.0, dont_raise_on_error=None, trace=None) -> dict:
         return self._do_sync(self.Headers(start_height, count, cp_height), timeout=timeout, dont_raise_on_error=dont_raise_on_error, trace=trace)
@@ -333,8 +333,8 @@ class Client:
         self._do_cb(self.DonationAddress(), callback, timeout=timeout)
     # TRANSACTION service (Callback-style methods)
     def Transaction_CB(self, callback: Callable[[Union[dict, Exception]], None],
-                        tx_hash: bytes, *, timeout=10.0):
-        self._do_cb(self.Transaction(tx_hash), callback, timeout=timeout)
+                        tx_id: bytes, *, timeout=10.0):
+        self._do_cb(self.Transaction(tx_id), callback, timeout=timeout)
     # HEADER service (Callback-style methods)
     def Headers_CB(self, callback: Callable[[Union[dict, Exception]], None],
                     start_height: int, count: int, cp_height: int = 0, *, timeout=10.0):
@@ -479,10 +479,10 @@ def test_txns(c: Client, args: argparse.Namespace):
         found = 0
         bad = 0
         notfound = 0
-        for i, tx_hash_hex in enumerate(txns,start=1):
-            tx_hash = bytes.fromhex(tx_hash_hex)
+        for i, tx_id_hex in enumerate(txns,start=1):
+            tx_id = bytes.fromhex(tx_id_hex)
             try:
-                txd = c.Transaction_Sync(tx_hash, trace=False, dont_raise_on_error=False) # synch req
+                txd = c.Transaction_Sync(tx_id, trace=False, dont_raise_on_error=False) # synch req
             except GRPCError as e:
                 if e.status == Status.NOT_FOUND:
                     notfound += 1
@@ -510,19 +510,19 @@ def test_txns(c: Client, args: argparse.Namespace):
         notfound = 0
         # Now, do it async. with a callback
         q = queue.Queue()
-        for i, tx_hash_hex in enumerate(txns, start=1):
-            tx_hash = bytes.fromhex(tx_hash_hex)
-            def callback(res, *, tx_hash=tx_hash, i=i):
-                q.put((i, tx_hash, res))
-            c.Transaction_CB(callback, tx_hash, timeout=timeout) # asynch req
+        for i, tx_id_hex in enumerate(txns, start=1):
+            tx_id = bytes.fromhex(tx_id_hex)
+            def callback(res, *, tx_id=tx_id, i=i):
+                q.put((i, tx_id, res))
+            c.Transaction_CB(callback, tx_id, timeout=timeout) # asynch req
             if int(i % 1000) == 0:
                 print("progress:", i, "requests ...")
         print("Submitted", len(txns), "asynch. callbacks (will wait for all to finish for up to ", timeout, "seconds)...")
         ctr = 0
         while ctr < len(txns):
             try:
-                i, tx_hash, res = q.get(timeout=timeout)
-                tx_hash_hex = tx_hash.hex()
+                i, tx_id, res = q.get(timeout=timeout)
+                tx_id_hex = tx_id.hex()
                 ctr += 1
             except queue.Empty:
                 print(f"Timeout waiting for asynch. txns, aborting early, got {ctr}/{len(txns)} txns")
@@ -531,13 +531,13 @@ def test_txns(c: Client, args: argparse.Namespace):
                 e = res
                 if isinstance(e, GRPCError):
                     if e.status == Status.NOT_FOUND:
-                        print(f"NOT FOUND {i}", tx_hash_hex[:8], e.message)
+                        print(f"NOT FOUND {i}", tx_id_hex[:8], e.message)
                         notfound += 1
                     else:
                         raise e  # unknown/unexpected error status
                 elif isinstance(e, (OSError, StreamTerminatedError, ProtocolError)):
                     # example of what errrors grpclib can raise on comm./network error
-                    print("Low-level I/O Error:", tx_hash_hex[:8], repr(e))
+                    print("Low-level I/O Error:", tx_id_hex[:8], repr(e))
                     return
                 elif isinstance(e, MalformedResponse):
                     # exmple of potential checks we do within the coroutine and how to handle them when they fail
@@ -548,7 +548,7 @@ def test_txns(c: Client, args: argparse.Namespace):
             else:
                 txd = res
                 found += 1
-                print("TxID", i, tx_hash_hex[:8], "ok; bytes:", len(txd['raw_tx']), "height:", txd['merkle']['block_height'] or '??')
+                print("TxID", i, tx_id_hex[:8], "ok; bytes:", len(txd['raw_tx']), "height:", txd['merkle']['block_height'] or '??')
         assert ctr == len(txns)
         print(f"Got {ctr} txn replies asynchronously (found: {found}, notfound: {notfound}, bad: {bad}), yay!")
 

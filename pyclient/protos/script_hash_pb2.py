@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='script_hash',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x18protos/script_hash.proto\x12\x0bscript_hash\"%\n\x0e\x42\x61lanceRequest\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\"9\n\x0f\x42\x61lanceResponse\x12\x11\n\tconfirmed\x18\x01 \x01(\x04\x12\x13\n\x0bunconfirmed\x18\x02 \x01(\x04\"\xbc\x01\n\x0eHistoryRequest\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\x12\x30\n\x05range\x18\x02 \x01(\x0b\x32!.script_hash.HistoryRequest.Range\x12\x1d\n\x15include_mempool_items\x18\x03 \x01(\x08\x1a\x44\n\x05Range\x12\x14\n\x0cstart_height\x18\x01 \x01(\r\x12\x11\n\tstart_pos\x18\x02 \x01(\r\x12\x12\n\nend_offset\x18\x03 \x01(\r\"\xa2\x03\n\x0fHistoryResponse\x12\x43\n\x0f\x63onfirmed_items\x18\x01 \x03(\x0b\x32*.script_hash.HistoryResponse.ConfirmedItem\x12M\n\x16\x63onfirmed_continuation\x18\x02 \x01(\x0b\x32-.script_hash.HistoryResponse.ContinuationSpec\x12?\n\rmempool_items\x18\x03 \x03(\x0b\x32(.script_hash.HistoryResponse.MempoolItem\x1a\x30\n\rConfirmedItem\x12\x0e\n\x06height\x18\x01 \x01(\r\x12\x0f\n\x07tx_hash\x18\x02 \x01(\x0c\x1aK\n\x0bMempoolItem\x12\x0f\n\x07tx_hash\x18\x01 \x01(\x0c\x12\x0b\n\x03\x66\x65\x65\x18\x02 \x01(\x04\x12\x1e\n\x16has_unconfirmed_parent\x18\x03 \x01(\x08\x1a;\n\x10\x43ontinuationSpec\x12\x14\n\x0cstart_height\x18\x01 \x01(\r\x12\x11\n\tstart_pos\x18\x02 \x01(\r\")\n\x12ListUnspentRequest\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\"\xfc\x01\n\x13ListUnspentResponse\x12;\n\x05items\x18\x01 \x03(\x0b\x32,.script_hash.ListUnspentResponse.UnspentItem\x1a\xa7\x01\n\x0bUnspentItem\x12\x0e\n\x06height\x18\x01 \x01(\x05\x12\x0f\n\x07tx_hash\x18\x02 \x01(\x0c\x12M\n\x0coutput_items\x18\x03 \x03(\x0b\x32\x37.script_hash.ListUnspentResponse.UnspentItem.OutputItem\x1a(\n\nOutputItem\x12\x0b\n\x03pos\x18\x01 \x01(\r\x12\r\n\x05value\x18\x02 \x01(\x04\"\'\n\x10SubscribeRequest\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\"I\n\x11SubscribeResponse\x12\x18\n\x10\x63onfirmed_status\x18\x01 \x01(\x0c\x12\x1a\n\x12unconfirmed_status\x18\x02 \x01(\x0c\x32\xb8\x02\n\nScriptHash\x12\x44\n\x07\x42\x61lance\x12\x1b.script_hash.BalanceRequest\x1a\x1c.script_hash.BalanceResponse\x12\x44\n\x07History\x12\x1b.script_hash.HistoryRequest\x1a\x1c.script_hash.HistoryResponse\x12P\n\x0bListUnspent\x12\x1f.script_hash.ListUnspentRequest\x1a .script_hash.ListUnspentResponse\x12L\n\tSubscribe\x12\x1d.script_hash.SubscribeRequest\x1a\x1e.script_hash.SubscribeResponse0\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x18protos/script_hash.proto\x12\x0bscript_hash\"%\n\x0e\x42\x61lanceRequest\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\"9\n\x0f\x42\x61lanceResponse\x12\x11\n\tconfirmed\x18\x01 \x01(\x04\x12\x13\n\x0bunconfirmed\x18\x02 \x01(\x04\"\xbc\x01\n\x0eHistoryRequest\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\x12\x30\n\x05range\x18\x02 \x01(\x0b\x32!.script_hash.HistoryRequest.Range\x12\x1d\n\x15include_mempool_items\x18\x03 \x01(\x08\x1a\x44\n\x05Range\x12\x14\n\x0cstart_height\x18\x01 \x01(\r\x12\x11\n\tstart_pos\x18\x02 \x01(\r\x12\x12\n\nend_offset\x18\x03 \x01(\r\"\x9e\x03\n\x0fHistoryResponse\x12\x43\n\x0f\x63onfirmed_items\x18\x01 \x03(\x0b\x32*.script_hash.HistoryResponse.ConfirmedItem\x12M\n\x16\x63onfirmed_continuation\x18\x02 \x01(\x0b\x32-.script_hash.HistoryResponse.ContinuationSpec\x12?\n\rmempool_items\x18\x03 \x03(\x0b\x32(.script_hash.HistoryResponse.MempoolItem\x1a.\n\rConfirmedItem\x12\x0e\n\x06height\x18\x01 \x01(\r\x12\r\n\x05tx_id\x18\x02 \x01(\x0c\x1aI\n\x0bMempoolItem\x12\r\n\x05tx_id\x18\x01 \x01(\x0c\x12\x0b\n\x03\x66\x65\x65\x18\x02 \x01(\x04\x12\x1e\n\x16has_unconfirmed_parent\x18\x03 \x01(\x08\x1a;\n\x10\x43ontinuationSpec\x12\x14\n\x0cstart_height\x18\x01 \x01(\r\x12\x11\n\tstart_pos\x18\x02 \x01(\r\")\n\x12ListUnspentRequest\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\"\xfa\x01\n\x13ListUnspentResponse\x12;\n\x05items\x18\x01 \x03(\x0b\x32,.script_hash.ListUnspentResponse.UnspentItem\x1a\xa5\x01\n\x0bUnspentItem\x12\x0e\n\x06height\x18\x01 \x01(\x05\x12\r\n\x05tx_id\x18\x02 \x01(\x0c\x12M\n\x0coutput_items\x18\x03 \x03(\x0b\x32\x37.script_hash.ListUnspentResponse.UnspentItem.OutputItem\x1a(\n\nOutputItem\x12\x0b\n\x03pos\x18\x01 \x01(\r\x12\r\n\x05value\x18\x02 \x01(\x04\"\'\n\x10SubscribeRequest\x12\x13\n\x0bscript_hash\x18\x01 \x01(\x0c\"I\n\x11SubscribeResponse\x12\x18\n\x10\x63onfirmed_status\x18\x01 \x01(\x0c\x12\x1a\n\x12unconfirmed_status\x18\x02 \x01(\x0c\x32\xb8\x02\n\nScriptHash\x12\x44\n\x07\x42\x61lance\x12\x1b.script_hash.BalanceRequest\x1a\x1c.script_hash.BalanceResponse\x12\x44\n\x07History\x12\x1b.script_hash.HistoryRequest\x1a\x1c.script_hash.HistoryResponse\x12P\n\x0bListUnspent\x12\x1f.script_hash.ListUnspentRequest\x1a .script_hash.ListUnspentResponse\x12L\n\tSubscribe\x12\x1d.script_hash.SubscribeRequest\x1a\x1e.script_hash.SubscribeResponse0\x01\x62\x06proto3')
 )
 
 
@@ -199,7 +199,7 @@ _HISTORYRESPONSE_CONFIRMEDITEM = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='tx_hash', full_name='script_hash.HistoryResponse.ConfirmedItem.tx_hash', index=1,
+      name='tx_id', full_name='script_hash.HistoryResponse.ConfirmedItem.tx_id', index=1,
       number=2, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
@@ -218,7 +218,7 @@ _HISTORYRESPONSE_CONFIRMEDITEM = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=563,
-  serialized_end=611,
+  serialized_end=609,
 )
 
 _HISTORYRESPONSE_MEMPOOLITEM = _descriptor.Descriptor(
@@ -229,7 +229,7 @@ _HISTORYRESPONSE_MEMPOOLITEM = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='tx_hash', full_name='script_hash.HistoryResponse.MempoolItem.tx_hash', index=0,
+      name='tx_id', full_name='script_hash.HistoryResponse.MempoolItem.tx_id', index=0,
       number=1, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
@@ -261,8 +261,8 @@ _HISTORYRESPONSE_MEMPOOLITEM = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=613,
-  serialized_end=688,
+  serialized_start=611,
+  serialized_end=684,
 )
 
 _HISTORYRESPONSE_CONTINUATIONSPEC = _descriptor.Descriptor(
@@ -298,8 +298,8 @@ _HISTORYRESPONSE_CONTINUATIONSPEC = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=690,
-  serialized_end=749,
+  serialized_start=686,
+  serialized_end=745,
 )
 
 _HISTORYRESPONSE = _descriptor.Descriptor(
@@ -343,7 +343,7 @@ _HISTORYRESPONSE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=331,
-  serialized_end=749,
+  serialized_end=745,
 )
 
 
@@ -373,8 +373,8 @@ _LISTUNSPENTREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=751,
-  serialized_end=792,
+  serialized_start=747,
+  serialized_end=788,
 )
 
 
@@ -411,8 +411,8 @@ _LISTUNSPENTRESPONSE_UNSPENTITEM_OUTPUTITEM = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1007,
-  serialized_end=1047,
+  serialized_start=1001,
+  serialized_end=1041,
 )
 
 _LISTUNSPENTRESPONSE_UNSPENTITEM = _descriptor.Descriptor(
@@ -430,7 +430,7 @@ _LISTUNSPENTRESPONSE_UNSPENTITEM = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='tx_hash', full_name='script_hash.ListUnspentResponse.UnspentItem.tx_hash', index=1,
+      name='tx_id', full_name='script_hash.ListUnspentResponse.UnspentItem.tx_id', index=1,
       number=2, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
@@ -455,8 +455,8 @@ _LISTUNSPENTRESPONSE_UNSPENTITEM = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=880,
-  serialized_end=1047,
+  serialized_start=876,
+  serialized_end=1041,
 )
 
 _LISTUNSPENTRESPONSE = _descriptor.Descriptor(
@@ -485,8 +485,8 @@ _LISTUNSPENTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=795,
-  serialized_end=1047,
+  serialized_start=791,
+  serialized_end=1041,
 )
 
 
@@ -516,8 +516,8 @@ _SUBSCRIBEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1049,
-  serialized_end=1088,
+  serialized_start=1043,
+  serialized_end=1082,
 )
 
 
@@ -554,8 +554,8 @@ _SUBSCRIBERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1090,
-  serialized_end=1163,
+  serialized_start=1084,
+  serialized_end=1157,
 )
 
 _HISTORYREQUEST_RANGE.containing_type = _HISTORYREQUEST
@@ -692,8 +692,8 @@ _SCRIPTHASH = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=1166,
-  serialized_end=1478,
+  serialized_start=1160,
+  serialized_end=1472,
   methods=[
   _descriptor.MethodDescriptor(
     name='Balance',

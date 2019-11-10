@@ -22,8 +22,24 @@ impl Mempool {
         self.pool.insert(*tx_id, tx);
     }
 
-    pub fn get_transaction(&mut self, tx_id: &[u8; 32]) -> Option<Transaction> {
+    pub fn get_transaction_by_id(&self, tx_id: &[u8; 32]) -> Option<Transaction> {
         self.pool.get(tx_id).cloned()
+    }
+
+    pub fn get_transactions_ids(&self, script_hash: &[u8; 32]) -> Option<Vec<[u8; 32]>> {
+        self.status.get(script_hash).cloned()
+    }
+
+    pub fn get_transactions_by_script_hash(
+        &self,
+        script_hash: &[u8; 32],
+    ) -> Option<Vec<Transaction>> {
+        self.status.get(script_hash).map(|tx_ids| {
+            tx_ids
+                .iter()
+                .map(|tx_id| self.get_transaction_by_id(tx_id).unwrap()) // This is safe
+                .collect()
+        })
     }
 
     // Append script to status and return new status
