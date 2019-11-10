@@ -32,7 +32,10 @@ impl Mempool {
         // This may be needed before we get eviction notices
         match self.status.get_mut(script_hash) {
             Some(ids) => {
-                ids.push(*tx_id);
+                // Insert into sorted vector
+                if let Err(pos) = ids.binary_search(&tx_id) {
+                    ids.insert(pos, *tx_id);
+                }
                 let concat = ids.concat();
                 Sha256d::hash(&concat).into_inner()
             }
