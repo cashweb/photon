@@ -52,7 +52,7 @@ pub async fn handle_zmq(
     let block_listener = ZMQListener::bind(block_addr).await?;
     let tx_listener = ZMQListener::bind(tx_addr).await?;
 
-    // Handle blocks
+    // Handle transactions
     let mut tx_stream = Box::pin(
         tx_listener
             .stream()
@@ -67,8 +67,11 @@ pub async fn handle_zmq(
                         tx_id[32 - i] = tx_id_rev[i];
                     }
 
-                    // Push to mempool
+                    // Push tx to mempool
                     let mut mempool_lock = MEMPOOL.lock().unwrap();
+                    mempool_lock.put_transaction(&tx_id, tx.clone());
+
+                    // Create new status
                     let script_hashes: Vec<_> = script_hash_transaction(&tx)
                         .into_iter()
                         .map(move |script_hash| {
