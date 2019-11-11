@@ -12,6 +12,8 @@ use model::{history_response::MempoolItem, SubscribeRequest, SubscribeResponse};
 
 type Sub = bus_queue::Subscriber<Result<([u8; 32], [u8; 32]), HandlerError>>;
 
+const INVALID_SCRIPT_HASH_MSG: &str = "invalid script hash";
+
 #[derive(Clone)]
 pub struct ScriptHashService {
     db: Database,
@@ -39,12 +41,9 @@ impl model::server::ScriptHash for ScriptHashService {
         let request_inner = request.into_inner();
 
         // Parse script hash
-        let script_hash: [u8; 32] = request_inner.script_hash[..].try_into().map_err(|_| {
-            Status::new(
-                Code::InvalidArgument,
-                "incorrect script hash length".to_string(),
-            )
-        })?;
+        let script_hash: [u8; 32] = request_inner.script_hash[..]
+            .try_into()
+            .map_err(|_| Status::new(Code::InvalidArgument, INVALID_SCRIPT_HASH_MSG.to_string()))?;
 
         let mempool_items: Vec<MempoolItem> = if request_inner.include_mempool_items {
             let ids: Vec<[u8; 32]> = MEMPOOL

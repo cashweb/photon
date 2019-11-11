@@ -69,7 +69,7 @@ pub async fn handle_zmq(
 
                     // Push tx to mempool
                     let mut mempool_lock = MEMPOOL.lock().unwrap();
-                    mempool_lock.put_transaction(&tx_id, tx.clone());
+                    mempool_lock.put_transaction(&tx_id, raw_tx);
 
                     // Create new status
                     let script_hashes: Vec<_> = script_hash_transaction(&tx)

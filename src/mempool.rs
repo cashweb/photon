@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use bitcoin::Transaction;
 use bitcoin_hashes::{sha256d::Hash as Sha256d, Hash};
 
 pub struct Mempool {
-    pool: HashMap<[u8; 32], Transaction>,
+    // Transaction pool
+    pool: HashMap<[u8; 32], Vec<u8>>,
+    // Status preimage
     status: HashMap<[u8; 32], Vec<[u8; 32]>>,
 }
 
@@ -18,11 +19,11 @@ impl Default for Mempool {
 }
 
 impl Mempool {
-    pub fn put_transaction(&mut self, tx_id: &[u8; 32], tx: Transaction) {
+    pub fn put_transaction(&mut self, tx_id: &[u8; 32], tx: Vec<u8>) {
         self.pool.insert(*tx_id, tx);
     }
 
-    pub fn get_transaction_by_id(&self, tx_id: &[u8; 32]) -> Option<Transaction> {
+    pub fn get_transaction_by_id(&self, tx_id: &[u8; 32]) -> Option<Vec<u8>> {
         self.pool.get(tx_id).cloned()
     }
 
@@ -30,10 +31,7 @@ impl Mempool {
         self.status.get(script_hash).cloned()
     }
 
-    pub fn get_transactions_by_script_hash(
-        &self,
-        script_hash: &[u8; 32],
-    ) -> Option<Vec<Transaction>> {
+    pub fn get_transactions_by_script_hash(&self, script_hash: &[u8; 32]) -> Option<Vec<Vec<u8>>> {
         self.status.get(script_hash).map(|tx_ids| {
             tx_ids
                 .iter()

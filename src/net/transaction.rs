@@ -1,3 +1,7 @@
+pub mod model {
+    tonic::include_proto!("transaction");
+}
+
 use std::convert::TryInto;
 
 use tonic::{Code, Request, Response, Status};
@@ -6,11 +10,8 @@ use crate::{
     bitcoin::client::*,
     db::{CachedOption, Database},
     net::{jsonrpc_client::ClientError, transaction::model::TransactionResponse},
+    MEMPOOL,
 };
-
-pub mod model {
-    tonic::include_proto!("transaction");
-}
 
 const INVALID_TX_ID_MSG: &str = "invalid transaction id";
 
@@ -55,6 +56,16 @@ impl model::server::Transaction for TransactionService {
         let tx_id: [u8; 32] = request_inner.tx_id[..]
             .try_into()
             .map_err(|_| Status::new(Code::InvalidArgument, INVALID_TX_ID_MSG.to_string()))?;
+
+        // Check mempool
+        if let Some(raw_tx) = MEMPOOL.lock().unwrap().get_transaction_by_id(&tx_id) {
+            let tx_response = TransactionResponse {
+                raw_tx,
+                ..Default::default()
+            };
+
+            return Ok(Response::new(tx_response));
+        }
 
         match self
                 .db
