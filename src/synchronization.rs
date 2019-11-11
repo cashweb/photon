@@ -43,7 +43,10 @@ pub async fn synchronize(
 
     // Get oldest valid block
     let last_sync_position: u32 = match resync {
-        Some(some) => some,
+        Some(some) => {
+            STATE_MANAGER.set_sync_position(some);
+            some
+        }
         None => match db.get_sync_position() {
             Ok(opt) => match opt {
                 Some(some) => {
