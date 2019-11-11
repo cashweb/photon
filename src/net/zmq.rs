@@ -64,7 +64,7 @@ pub async fn handle_zmq(
                     let tx_id_rev = tx.txid().into_inner();
                     let mut tx_id = [0; 32];
                     for i in 0..32 {
-                        tx_id[32 - i] = tx_id_rev[i];
+                        tx_id[31 - i] = tx_id_rev[i];
                     }
 
                     // Push tx to mempool
