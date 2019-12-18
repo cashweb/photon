@@ -17,6 +17,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(true)
         .build_client(false)
         .compile(&["proto/transaction.proto"], &["proto"])?;
-
+    tonic_build::configure()
+        .build_server(true)
+        .build_client(false)
+        .compile(&["proto/script_hash.proto"], &["proto"])?;
     Ok(())
 }

@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='transaction',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x18protos/transaction.proto\x12\x0btransaction\"\"\n\x10\x42roadcastRequest\x12\x0e\n\x06raw_tx\x18\x01 \x01(\x0c\"$\n\x11\x42roadcastResponse\x12\x0f\n\x07tx_hash\x18\x01 \x01(\x0c\"E\n\x12TransactionRequest\x12\x0f\n\x07tx_hash\x18\x01 \x01(\x0c\x12\x0e\n\x06height\x18\x02 \x01(\r\x12\x0e\n\x06merkle\x18\x03 \x01(\x08\"\xa7\x01\n\x13TransactionResponse\x12\x0e\n\x06raw_tx\x18\x01 \x01(\x0c\x12=\n\x06merkle\x18\x02 \x01(\x0b\x32-.transaction.TransactionResponse.TxMerkleInfo\x1a\x41\n\x0cTxMerkleInfo\x12\x14\n\x0c\x62lock_height\x18\x01 \x01(\r\x12\x0e\n\x06merkle\x18\x02 \x03(\x0c\x12\x0b\n\x03pos\x18\x03 \x01(\r\"&\n\x13MerkleBranchRequest\x12\x0f\n\x07tx_hash\x18\x01 \x01(\x0c\"I\n\x14MerkleBranchResponse\x12\x14\n\x0c\x62lock_height\x18\x01 \x01(\r\x12\x0e\n\x06merkle\x18\x02 \x03(\x0c\x12\x0b\n\x03pos\x18\x03 \x01(\r\"B\n\x10IdFromPosRequest\x12\x0e\n\x06height\x18\x01 \x01(\r\x12\x0e\n\x06tx_pos\x18\x02 \x01(\r\x12\x0e\n\x06merkle\x18\x03 \x01(\x08\"4\n\x11IdFromPosResponse\x12\x0f\n\x07tx_hash\x18\x01 \x01(\x0c\x12\x0e\n\x06merkle\x18\x02 \x03(\x0c\x32\xcc\x02\n\x0bTransaction\x12J\n\tBroadcast\x12\x1d.transaction.BroadcastRequest\x1a\x1e.transaction.BroadcastResponse\x12P\n\x0bTransaction\x12\x1f.transaction.TransactionRequest\x1a .transaction.TransactionResponse\x12S\n\x0cMerkleBranch\x12 .transaction.MerkleBranchRequest\x1a!.transaction.MerkleBranchResponse\x12J\n\tIdFromPos\x12\x1d.transaction.IdFromPosRequest\x1a\x1e.transaction.IdFromPosResponseb\x06proto3')
+  serialized_pb=_b('\n\x18protos/transaction.proto\x12\x0btransaction\"\"\n\x10\x42roadcastRequest\x12\x0e\n\x06raw_tx\x18\x01 \x01(\x0c\"\"\n\x11\x42roadcastResponse\x12\r\n\x05tx_id\x18\x01 \x01(\x0c\"C\n\x12TransactionRequest\x12\r\n\x05tx_id\x18\x01 \x01(\x0c\x12\x0e\n\x06height\x18\x02 \x01(\r\x12\x0e\n\x06merkle\x18\x03 \x01(\x08\"\xa7\x01\n\x13TransactionResponse\x12\x0e\n\x06raw_tx\x18\x01 \x01(\x0c\x12=\n\x06merkle\x18\x02 \x01(\x0b\x32-.transaction.TransactionResponse.TxMerkleInfo\x1a\x41\n\x0cTxMerkleInfo\x12\x14\n\x0c\x62lock_height\x18\x01 \x01(\r\x12\x0e\n\x06merkle\x18\x02 \x03(\x0c\x12\x0b\n\x03pos\x18\x03 \x01(\r\"$\n\x13MerkleBranchRequest\x12\r\n\x05tx_id\x18\x01 \x01(\x0c\"I\n\x14MerkleBranchResponse\x12\x14\n\x0c\x62lock_height\x18\x01 \x01(\r\x12\x0e\n\x06merkle\x18\x02 \x03(\x0c\x12\x0b\n\x03pos\x18\x03 \x01(\r\"B\n\x10IdFromPosRequest\x12\x0e\n\x06height\x18\x01 \x01(\r\x12\x0e\n\x06tx_pos\x18\x02 \x01(\r\x12\x0e\n\x06merkle\x18\x03 \x01(\x08\"2\n\x11IdFromPosResponse\x12\r\n\x05tx_id\x18\x01 \x01(\x0c\x12\x0e\n\x06merkle\x18\x02 \x03(\x0c\x32\xcc\x02\n\x0bTransaction\x12J\n\tBroadcast\x12\x1d.transaction.BroadcastRequest\x1a\x1e.transaction.BroadcastResponse\x12P\n\x0bTransaction\x12\x1f.transaction.TransactionRequest\x1a .transaction.TransactionResponse\x12S\n\x0cMerkleBranch\x12 .transaction.MerkleBranchRequest\x1a!.transaction.MerkleBranchResponse\x12J\n\tIdFromPos\x12\x1d.transaction.IdFromPosRequest\x1a\x1e.transaction.IdFromPosResponseb\x06proto3')
 )
 
 
@@ -65,7 +65,7 @@ _BROADCASTRESPONSE = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='tx_hash', full_name='transaction.BroadcastResponse.tx_hash', index=0,
+      name='tx_id', full_name='transaction.BroadcastResponse.tx_id', index=0,
       number=1, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
@@ -84,7 +84,7 @@ _BROADCASTRESPONSE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=77,
-  serialized_end=113,
+  serialized_end=111,
 )
 
 
@@ -96,7 +96,7 @@ _TRANSACTIONREQUEST = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='tx_hash', full_name='transaction.TransactionRequest.tx_hash', index=0,
+      name='tx_id', full_name='transaction.TransactionRequest.tx_id', index=0,
       number=1, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
@@ -128,8 +128,8 @@ _TRANSACTIONREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=115,
-  serialized_end=184,
+  serialized_start=113,
+  serialized_end=180,
 )
 
 
@@ -173,8 +173,8 @@ _TRANSACTIONRESPONSE_TXMERKLEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=289,
-  serialized_end=354,
+  serialized_start=285,
+  serialized_end=350,
 )
 
 _TRANSACTIONRESPONSE = _descriptor.Descriptor(
@@ -210,8 +210,8 @@ _TRANSACTIONRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=187,
-  serialized_end=354,
+  serialized_start=183,
+  serialized_end=350,
 )
 
 
@@ -223,7 +223,7 @@ _MERKLEBRANCHREQUEST = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='tx_hash', full_name='transaction.MerkleBranchRequest.tx_hash', index=0,
+      name='tx_id', full_name='transaction.MerkleBranchRequest.tx_id', index=0,
       number=1, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
@@ -241,8 +241,8 @@ _MERKLEBRANCHREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=356,
-  serialized_end=394,
+  serialized_start=352,
+  serialized_end=388,
 )
 
 
@@ -286,8 +286,8 @@ _MERKLEBRANCHRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=396,
-  serialized_end=469,
+  serialized_start=390,
+  serialized_end=463,
 )
 
 
@@ -331,8 +331,8 @@ _IDFROMPOSREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=471,
-  serialized_end=537,
+  serialized_start=465,
+  serialized_end=531,
 )
 
 
@@ -344,7 +344,7 @@ _IDFROMPOSRESPONSE = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='tx_hash', full_name='transaction.IdFromPosResponse.tx_hash', index=0,
+      name='tx_id', full_name='transaction.IdFromPosResponse.tx_id', index=0,
       number=1, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
@@ -369,8 +369,8 @@ _IDFROMPOSRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=539,
-  serialized_end=591,
+  serialized_start=533,
+  serialized_end=583,
 )
 
 _TRANSACTIONRESPONSE_TXMERKLEINFO.containing_type = _TRANSACTIONRESPONSE
@@ -457,8 +457,8 @@ _TRANSACTION = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=594,
-  serialized_end=926,
+  serialized_start=586,
+  serialized_end=918,
   methods=[
   _descriptor.MethodDescriptor(
     name='Broadcast',

@@ -9,12 +9,12 @@ message BroadcastRequest {
 
 message BroadcastResponse {
   // The transaction hash as a byte array.
-  bytes tx_hash = 1;
+  bytes tx_id = 1;
 }
 
 message TransactionRequest {
   // The transaction hash as a byte array.
-  bytes tx_hash = 1;
+  bytes tx_id = 1;
   // Height of the block containing the transaction to aid lookup (optional).
   uint32 height = 2;
   // Whether a merkle proof should also be returned.
@@ -44,7 +44,7 @@ message TransactionResponse {
 
 message MerkleBranchRequest {
   // The transaction hash as a byte array.
-  bytes tx_hash = 1;
+  bytes tx_id = 1;
 }
 
 message MerkleBranchResponse {
@@ -70,7 +70,7 @@ message IdFromPosRequest {
 
 message IdFromPosResponse {
   // The transaction hash as a byte array.
-  bytes tx_hash = 1;
+  bytes tx_id = 1;
   // A list of transaction hashes the current hash is paired with,
   // recursively, in order to trace up to obtain merkle root of the block,
   // deepest pairing first.

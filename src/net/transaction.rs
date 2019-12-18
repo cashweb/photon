@@ -1,3 +1,7 @@
+pub mod model {
+    tonic::include_proto!("transaction");
+}
+
 use std::convert::TryInto;
 
 use tonic::{Code, Request, Response, Status};
@@ -6,11 +10,8 @@ use crate::{
     bitcoin::client::*,
     db::{CachedOption, Database},
     net::{jsonrpc_client::ClientError, transaction::model::TransactionResponse},
+    MEMPOOL,
 };
-
-pub mod model {
-    tonic::include_proto!("transaction");
-}
 
 const INVALID_TX_ID_MSG: &str = "invalid transaction id";
 
@@ -27,7 +28,7 @@ impl model::server::Transaction for TransactionService {
         request: Request<model::BroadcastRequest>,
     ) -> Result<Response<model::BroadcastResponse>, Status> {
         let raw_tx = request.into_inner().raw_tx;
-        let tx_hash = self
+        let tx_id = self
             .bitcoin_client
             .broadcast_tx(&raw_tx)
             .await
@@ -42,7 +43,7 @@ impl model::server::Transaction for TransactionService {
                 // Else internal errors
                 _ => Status::new(Code::Internal, String::new()), // Don't reveal internal server error
             })?;
-        let reply = model::BroadcastResponse { tx_hash };
+        let reply = model::BroadcastResponse { tx_id };
         Ok(Response::new(reply))
     }
 
@@ -52,18 +53,28 @@ impl model::server::Transaction for TransactionService {
     ) -> Result<Response<model::TransactionResponse>, Status> {
         let request_inner = request.into_inner();
 
-        let tx_hash: [u8; 32] = request_inner.tx_hash[..]
+        let tx_id: [u8; 32] = request_inner.tx_id[..]
             .try_into()
             .map_err(|_| Status::new(Code::InvalidArgument, INVALID_TX_ID_MSG.to_string()))?;
 
+        // Check mempool
+        if let Some(raw_tx) = MEMPOOL.lock().unwrap().get_transaction_by_id(&tx_id) {
+            let tx_response = TransactionResponse {
+                raw_tx,
+                ..Default::default()
+            };
+
+            return Ok(Response::new(tx_response));
+        }
+
         match self
                 .db
-                .get_tx(&tx_hash)
+                .get_tx(&tx_id)
                 .map_err(|_| Status::new(Code::Internal, String::new()))? // Don't reveal internal server error
             {
                 CachedOption::Some(mut tx_response) => {
                     // Get tx from bitcoind
-                    let raw_tx = self.bitcoin_client.raw_tx(&tx_hash).await.map_err(|_| {
+                    let raw_tx = self.bitcoin_client.raw_tx(&tx_id).await.map_err(|_| {
                         // TODO: Handle missing transaction correctly
                         Status::new(Code::NotFound, String::new())})?;
 
@@ -72,7 +83,7 @@ impl model::server::Transaction for TransactionService {
 
                     // Insert cached tx response into DB
                     // TODO: On seperate thread? Log response?
-                    self.db.clone().put_tx(&tx_hash, &tx_response).unwrap_or(());
+                    self.db.clone().put_tx(&tx_id, &tx_response).unwrap_or(());
 
                     // TODO: Is it faster to mutate or reallocate?
                     if !request_inner.merkle {

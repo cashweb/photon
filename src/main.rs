@@ -5,10 +5,13 @@ extern crate log;
 
 pub mod bitcoin;
 pub mod db;
+pub mod mempool;
 pub mod net;
 pub mod settings;
 pub mod state;
 pub mod synchronization;
+
+use std::sync::Mutex;
 
 use bus_queue::bounded as bus_channel;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
@@ -19,12 +22,14 @@ use crate::{
     bitcoin::client::BitcoinClient,
     net::{
         header::{model::server::HeaderServer, HeaderService},
+        script_hash::{model::server::ScriptHashServer, ScriptHashService},
         transaction::{model::server::TransactionServer, TransactionService},
         utility::{model::server::UtilityServer, UtilityService},
         zmq,
     },
 };
 use db::Database;
+use mempool::Mempool;
 use state::StateMananger;
 use synchronization::{synchronize, SyncingError};
 
@@ -97,6 +102,9 @@ lazy_static! {
 
     // Init state manager
     static ref STATE_MANAGER: StateMananger = StateMananger::default();
+
+    // Init mempool
+    static ref MEMPOOL: Mutex<Mempool> = Mutex::new(Mempool::default());
 }
 
 #[derive(Debug)]
@@ -152,6 +160,7 @@ async fn main() -> Result<(), AppError> {
 
     // Create broadcast channels
     let (header_sender, header_bus) = bus_channel(BROADCAST_CAPACITY);
+    let (script_hash_sender, script_hash_bus) = bus_channel(BROADCAST_CAPACITY);
 
     // Construct ZMQ handler
     let handler = zmq::handle_zmq(
@@ -159,11 +168,16 @@ async fn main() -> Result<(), AppError> {
         &SETTINGS.bitcoin_zmq_tx_addr,
         db.clone(),
         header_sender,
+        script_hash_sender,
     );
 
     // Construct header service
     let header_service = HeaderService::new(bitcoin_client.clone(), db.clone(), header_bus);
     let header_svc = HeaderServer::new(header_service);
+
+    // Construct script hash service
+    let script_hash_service = ScriptHashService::new(db.clone(), script_hash_bus);
+    let script_hash_svc = ScriptHashServer::new(script_hash_service);
 
     // Construct utility service
     let utility_svc = UtilityServer::new(UtilityService {});
@@ -198,6 +212,7 @@ async fn main() -> Result<(), AppError> {
     let addr = SETTINGS.bind.parse().unwrap();
     let server = server_builder
         .add_service(header_svc)
+        .add_service(script_hash_svc)
         .add_service(utility_svc)
         .add_service(transaction_svc)
         .serve(addr);

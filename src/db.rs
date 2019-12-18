@@ -93,7 +93,7 @@ impl Database {
         // Prefix key
         let mut key: [u8; TX_ID_PREFIX_LEN + 1] = [0; TX_ID_PREFIX_LEN + 1];
         key[0] = b't';
-        key[1..].clone_from_slice(&tx_id[..]);
+        key[1..].clone_from_slice(&tx_id[..TX_ID_PREFIX_LEN]);
 
         self.0.put(&key, raw)
     }
@@ -102,7 +102,7 @@ impl Database {
         // Prefix key
         let mut key: [u8; TX_ID_PREFIX_LEN + 1] = [0; TX_ID_PREFIX_LEN + 1];
         key[0] = b't';
-        key[1..].clone_from_slice(&tx_id[..]);
+        key[1..].clone_from_slice(&tx_id[..TX_ID_PREFIX_LEN]);
 
         self.0.get(&key).map(|opt| match opt {
             Some(some) => {

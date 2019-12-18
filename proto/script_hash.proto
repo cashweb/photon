@@ -44,11 +44,11 @@ message HistoryResponse {
     // The integer height of the block the transaction was confirmed in.
     uint32 height = 1;
     // The transaction hash as bytes.
-    bytes tx_hash = 2;
+    bytes tx_id = 2;
   }
   message MempoolItem {
     // The transaction hash as bytes
-    bytes tx_hash = 1;
+    bytes tx_id = 1;
     // The transaction fee in satoshis
     uint64 fee = 2;
     // If true, the tx in question has at least 1 input that is also in the
@@ -96,7 +96,7 @@ message ListUnspentResponse {
     // the transaction is in the mempool.
     int32 height = 1;
     // The output’s transaction hash as bytes
-    bytes tx_hash = 2;
+    bytes tx_id = 2;
     message OutputItem {
       // The zero-based index of the output in the transaction’s list of outputs
       uint32 pos = 1;
@@ -123,9 +123,9 @@ message SubscribeResponse {
   // In Python it would look something like:
   //
   // confirmed_status = b'\0'*32
-  // for tx_hash_bytes, height_int32_le_bytes in history:
+  // for tx_id_bytes, height_int32_le_bytes in history:
   //    confirmed_status = hashlib.sha256(confirmed_status
-  //                                      + tx_hash_bytes
+  //                                      + tx_id_bytes
   //                                      + height_int32_le_bytes
   //                                      ).digest()
   //
@@ -139,8 +139,8 @@ message SubscribeResponse {
   // that this status hash is *NOT* recursive and is basically (in Python):
   //
   // preimage = b''
-  // for tx_hash_bytes in sorted(mempool_for_this_script_hash):
-  //   preimage += tx_hash_bytes
+  // for tx_id_bytes in sorted(mempool_for_this_script_hash):
+  //   preimage += tx_id_bytes
   //
   // return hashlib.sha256(preimage).digest()
   //
