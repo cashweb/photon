@@ -118,7 +118,9 @@ enum AppError {
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     // Init logging
-    env_logger::init();
+    tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
 
     // Init Bitcoin client
     let protocol = if SETTINGS.bitcoin_tls {

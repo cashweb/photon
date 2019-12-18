@@ -27,6 +27,8 @@ serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.44"
 tokio = { version = "0.2.4", features = ["fs", "macros"] }
 tonic = { git = "https://github.com/hyperium/tonic", features = ["tls"] }
+tracing = "0.1"
+tracing-subscriber =  { version = "0.2.0-alpha", features = ["tracing-log"] }
 prost = "0.5.0"
 
 [build-dependencies]
