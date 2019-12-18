@@ -22,7 +22,7 @@ pub struct TransactionService {
 }
 
 #[tonic::async_trait]
-impl model::server::Transaction for TransactionService {
+impl model::transaction_server::Transaction for TransactionService {
     async fn broadcast(
         &self,
         request: Request<model::BroadcastRequest>,
@@ -58,7 +58,7 @@ impl model::server::Transaction for TransactionService {
             .map_err(|_| Status::new(Code::InvalidArgument, INVALID_TX_ID_MSG.to_string()))?;
 
         // Check mempool
-        if let Some(raw_tx) = MEMPOOL.lock().unwrap().get_transaction_by_id(&tx_id) {
+        if let Some(raw_tx) = MEMPOOL.lock().await.get_transaction_by_id(&tx_id) {
             let tx_response = TransactionResponse {
                 raw_tx,
                 ..Default::default()

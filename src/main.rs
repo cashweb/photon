@@ -11,20 +11,18 @@ pub mod settings;
 pub mod state;
 pub mod synchronization;
 
-use std::sync::Mutex;
-
 use bus_queue::bounded as bus_channel;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
-use futures::{future::try_join3, prelude::*};
+use futures::{future::try_join3, lock::Mutex, prelude::*};
 use tonic::transport::{Error as TonicError, Identity, Server, ServerTlsConfig};
 
 use crate::{
     bitcoin::client::BitcoinClient,
     net::{
-        header::{model::server::HeaderServer, HeaderService},
-        script_hash::{model::server::ScriptHashServer, ScriptHashService},
-        transaction::{model::server::TransactionServer, TransactionService},
-        utility::{model::server::UtilityServer, UtilityService},
+        header::{model::header_server::HeaderServer, HeaderService},
+        script_hash::{model::script_hash_server::ScriptHashServer, ScriptHashService},
+        transaction::{model::transaction_server::TransactionServer, TransactionService},
+        utility::{model::utility_server::UtilityServer, UtilityService},
         zmq,
     },
 };
@@ -202,7 +200,7 @@ async fn main() -> Result<(), AppError> {
 
             // Add TLS to server
             server_builder = server_builder
-                .tls_config(&ServerTlsConfig::with_rustls().identity(identity))
+                .tls_config(ServerTlsConfig::new().identity(identity))
                 .clone();
         }
         (None, None) => (),

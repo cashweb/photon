@@ -11,8 +11,8 @@ use crate::{
     MEMPOOL, STATE_MANAGER,
 };
 
-type HeaderBus = bus_queue::Publisher<Result<(u32, [u8; 80]), HandlerError>>;
-type ScriptHashBus = bus_queue::Publisher<Result<([u8; 32], [u8; 32]), HandlerError>>;
+type HeaderBus = bus_queue::Publisher<(u32, [u8; 80])>;
+type ScriptHashBus = bus_queue::Publisher<([u8; 32], [u8; 32])>;
 
 #[derive(Debug)]
 pub enum MempoolError {
@@ -45,15 +45,15 @@ pub async fn handle_zmq(
     block_addr: &str,
     tx_addr: &str,
     db: Database,
-    mut header_bus: HeaderBus,
-    mut script_hash_bus: ScriptHashBus,
+    header_bus: HeaderBus,
+    script_hash_bus: ScriptHashBus,
 ) -> Result<(), HandlerError> {
     // Bind
     let block_listener = ZMQListener::bind(block_addr).await?;
     let tx_listener = ZMQListener::bind(tx_addr).await?;
 
     // Handle transactions
-    let mut tx_stream = Box::pin(
+    let tx_stream = Box::pin(
         tx_listener
             .stream()
             .map_err(MempoolError::Subscription)
@@ -68,7 +68,7 @@ pub async fn handle_zmq(
                     }
 
                     // Push tx to mempool
-                    let mut mempool_lock = MEMPOOL.lock().unwrap();
+                    let mut mempool_lock = MEMPOOL.lock().await;
                     mempool_lock.put_transaction(&tx_id, raw_tx);
 
                     // Create new status
@@ -89,9 +89,7 @@ pub async fn handle_zmq(
     );
 
     // Broadcast to all subscribers
-    let broadcast_tx = script_hash_bus
-        .send_all(&mut tx_stream)
-        .map_err(|_| HandlerError::Broker);
+    let broadcast_tx = tx_stream.forward(script_hash_bus.sink_map_err(|_| HandlerError::Broker));
 
     // Pair blocks with sync position
     let paired_raw_block_stream = block_listener.stream().map_ok(|raw_block| {
@@ -110,7 +108,7 @@ pub async fn handle_zmq(
         process_block_stream(paired_block_stream, db_inner).map_err(HandlerError::Block);
 
     // Record and log progress
-    let mut increment = Box::pin(
+    let increment = Box::pin(
         process_block_stream.and_then(move |(block_height, header)| {
             let db_inner = db.clone();
             async move {
@@ -127,9 +125,7 @@ pub async fn handle_zmq(
     );
 
     // Broadcast to all subscribers
-    let broadcast_block = header_bus
-        .send_all(&mut increment)
-        .map_err(|_| HandlerError::Broker);
+    let broadcast_block = increment.forward(header_bus.sink_map_err(|_| HandlerError::Broker));
 
     future::try_join(broadcast_tx, broadcast_block)
         .map(|_| ())

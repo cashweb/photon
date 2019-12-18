@@ -7,10 +7,10 @@ use std::{convert::TryInto, pin::Pin, sync::Arc};
 use futures::prelude::*;
 use tonic::{Code, Request, Response, Status};
 
-use crate::{db::Database, zmq::HandlerError, MEMPOOL};
+use crate::{db::Database, MEMPOOL};
 use model::{history_response::MempoolItem, SubscribeRequest, SubscribeResponse};
 
-type Sub = bus_queue::Subscriber<Result<([u8; 32], [u8; 32]), HandlerError>>;
+type Sub = bus_queue::Subscriber<([u8; 32], [u8; 32])>;
 
 const INVALID_SCRIPT_HASH_MSG: &str = "invalid script hash";
 
@@ -30,7 +30,7 @@ impl ScriptHashService {
 }
 
 #[tonic::async_trait]
-impl model::server::ScriptHash for ScriptHashService {
+impl model::script_hash_server::ScriptHash for ScriptHashService {
     type SubscribeStream =
         Pin<Box<dyn Stream<Item = Result<SubscribeResponse, Status>> + Send + Sync + 'static>>;
 
@@ -48,7 +48,7 @@ impl model::server::ScriptHash for ScriptHashService {
         let mempool_items: Vec<MempoolItem> = if request_inner.include_mempool_items {
             let ids: Vec<[u8; 32]> = MEMPOOL
                 .lock()
-                .unwrap()
+                .await
                 .get_transactions_ids(&script_hash)
                 .unwrap_or(vec![]);
 
@@ -82,21 +82,16 @@ impl model::server::ScriptHash for ScriptHashService {
         let response_stream = self.script_hash_bus.clone().filter_map(move |arc_val| {
             let request_script_hash_inner = request_script_hash.clone();
             async move {
-                arc_val
-                    .as_ref()
-                    .as_ref()
-                    .map(move |(script_hash, status)| {
-                        if &request_script_hash_inner[..] == &script_hash[..] {
-                            Some(SubscribeResponse {
-                                confirmed_status: vec![],
-                                unconfirmed_status: status.to_vec(),
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .map_err(|err| Status::new(Code::Aborted, format!("{:?}", err)))
-                    .transpose()
+                let (script_hash, status) = arc_val.as_ref();
+
+                if request_script_hash_inner[..] == script_hash[..] {
+                    Some(Ok(SubscribeResponse {
+                        confirmed_status: vec![],
+                        unconfirmed_status: status.to_vec(),
+                    }))
+                } else {
+                    None
+                }
             }
         });
         let pinned = Box::pin(response_stream) as Self::SubscribeStream;

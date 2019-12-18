@@ -7,10 +7,10 @@ use std::pin::Pin;
 use futures::prelude::*;
 use tonic::{Code, Request, Response, Status};
 
-use crate::{bitcoin::client::*, db::Database, zmq::HandlerError};
+use crate::{bitcoin::client::*, db::Database};
 use model::{HeadersResponse, SubscribeResponse};
 
-type Sub = bus_queue::Subscriber<Result<(u32, [u8; 80]), HandlerError>>;
+type Sub = bus_queue::Subscriber<(u32, [u8; 80])>;
 
 #[derive(Clone)]
 pub struct HeaderService {
@@ -30,7 +30,7 @@ impl HeaderService {
 }
 
 #[tonic::async_trait]
-impl model::server::Header for HeaderService {
+impl model::header_server::Header for HeaderService {
     type SubscribeStream =
         Pin<Box<dyn Stream<Item = Result<SubscribeResponse, Status>> + Send + Sync + 'static>>;
 
@@ -53,14 +53,11 @@ impl model::server::Header for HeaderService {
 
     async fn subscribe(&self, _: Request<()>) -> Result<Response<Self::SubscribeStream>, Status> {
         let response_stream = self.header_bus.clone().map(move |arc_val| {
-            arc_val
-                .as_ref()
-                .as_ref()
-                .map(move |(height, header)| SubscribeResponse {
-                    height: *height,
-                    header: header.to_vec(),
-                })
-                .map_err(|err| Status::new(Code::Aborted, format!("{:?}", err)))
+            let (height, header) = arc_val.as_ref();
+            Ok(SubscribeResponse {
+                height: *height,
+                header: header.to_vec(),
+            })
         });
         let pinned = Box::pin(response_stream) as Self::SubscribeStream;
         Ok(Response::new(pinned))

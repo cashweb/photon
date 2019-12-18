@@ -13,7 +13,7 @@ const AGENT: &str = "";
 pub struct UtilityService {}
 
 #[tonic::async_trait]
-impl model::server::Utility for UtilityService {
+impl model::utility_server::Utility for UtilityService {
     async fn banner(
         &self,
         _request: Request<()>,

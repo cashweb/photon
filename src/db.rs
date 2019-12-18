@@ -107,7 +107,7 @@ impl Database {
         self.0.get(&key).map(|opt| match opt {
             Some(some) => {
                 // TODO: Use wrapping metadata protobuf
-                let tx_entry = TransactionResponse::decode(some.as_ref()).unwrap();
+                let tx_entry = TransactionResponse::decode(some).unwrap();
 
                 if tx_entry.raw_tx.is_empty() {
                     CachedOption::Some(tx_entry)
@@ -129,8 +129,8 @@ impl Database {
         let key: [u8; 1] = [b's'];
         self.0.get(&key[..]).map(|res| {
             res.map(|val| {
-                // This panics is record is malformed
-                let bytes: [u8; 4] = val.as_ref().try_into().unwrap();
+                // This panics if record is malformed
+                let bytes: [u8; 4] = val[..].try_into().unwrap();
                 u32::from_le_bytes(bytes)
             })
         })

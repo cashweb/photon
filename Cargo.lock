@@ -1108,7 +1108,7 @@ dependencies = [
  "bitcoin-zmq 0.2.0-alpha.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitcoin_hashes 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "bus_queue 0.4.1 (git+https://github.com/hlb8122/bus-queue)",
- "bytes 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "config 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossbeam 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
